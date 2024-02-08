@@ -49,8 +49,8 @@ connection_style = draw_utils.DrawingSpec((0,0,255), thickness=1, circle_radius=
 
 STATIC_IMAGE = False
 MAX_NO_FACES = 4
-DETECTION_CONFIDENCE = 0.1
-TRACKING_CONFIDENCE = 0.2
+DETECTION_CONFIDENCE = 0.6
+TRACKING_CONFIDENCE = 0.5
 
 COLOR_RED = (0,0,255)
 COLOR_BLUE = (255,0,0)
