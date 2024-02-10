@@ -48,7 +48,7 @@ connection_style = draw_utils.DrawingSpec((0,0,255), thickness=1, circle_radius=
 
 
 STATIC_IMAGE = False
-MAX_NO_FACES = 4
+MAX_NO_FACES = 1
 DETECTION_CONFIDENCE = 0.6
 TRACKING_CONFIDENCE = 0.5
 
