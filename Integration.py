@@ -132,8 +132,6 @@ while True:
                 message = 'Yawn Detected'
                 print(message)
            
-            
-           
         cv.imshow("FACE MESH", image)
         if cv.waitKey(1) & 255 == 27:
             break
