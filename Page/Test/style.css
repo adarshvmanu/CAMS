@@ -1,0 +1,34 @@
+body {
+    font-family: "Poppins", sans-serif;
+}
+.card {
+    margin-top: 20px; 
+    height: 200px;
+    border-radius: 10px;
+}
+nav,
+.nav-links {
+  display: flex;
+}
+
+nav {
+  justify-content: space-around;
+  align-items: center;
+  height: 17vh;
+}
+.nav-links {
+    gap: 2rem;
+    list-style: none;
+    font-size: 1.5rem;
+}
+.logo {
+    font-family: poppins;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+a {
+    color: black;
+    text-decoration: none;
+    text-decoration-color: white;
+}
