@@ -1,11 +1,15 @@
 body {
     font-family: "Poppins", sans-serif;
+    margin-left: 140px;
+    margin-right: 140px;
 }
+
 .card {
     margin-top: 20px; 
-    height: 200px;
+    height: 250px;
     border-radius: 10px;
 }
+
 nav,
 .nav-links {
   display: flex;
@@ -14,13 +18,15 @@ nav,
 nav {
   justify-content: space-around;
   align-items: center;
-  height: 17vh;
+  height: 15vh;
 }
+
 .nav-links {
-    gap: 2rem;
+    gap: 2.5rem;
     list-style: none;
     font-size: 1.5rem;
 }
+
 .logo {
     font-family: poppins;
     font-size: 2rem;
