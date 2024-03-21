@@ -1,6 +1,7 @@
 import mediapipe as mp
 import cv2 as cv
 from scipy.spatial import distance as dis
+import time
 
 def draw_landmarks(image, outputs, land_mark, color):
     height, width = image.shape[:2]
@@ -90,6 +91,7 @@ while True:
                 print(f"Drowsiness detected in face {idx+1}")
             if ratio_lips < 1.8:
                 print(f"Yawning detected in face {idx+1}")
+            time.sleep(1)
 
     cv.imshow('Face Mesh', image)
     if cv.waitKey(5) & 0xFF == 27:
