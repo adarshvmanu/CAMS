@@ -1,6 +1,7 @@
 import mediapipe as mp
 import cv2 as cv
 from scipy.spatial import distance as dis
+import time
 
 def draw_landmarks(image, outputs, land_mark, color):
     height, width = image.shape[:2]
@@ -69,9 +70,11 @@ face_model = mp_face_mesh.FaceMesh(
 
 capture = cv.VideoCapture(0)
 
-frame_count = 0
+
 min_frame = 6
 min_tolerance = 5.0
+frame_count=[0]*MAX_NUM_FACES
+drowsiness_detected=[False]*MAX_NUM_FACES
 
 while True:
     ret, image = capture.read()
@@ -80,7 +83,7 @@ while True:
     
     image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
     results = face_model.process(image_rgb)
-
+    
     if results.multi_face_landmarks:
         draw_landmarks(image, results, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
         draw_landmarks(image, results, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
@@ -89,20 +92,28 @@ while True:
         draw_landmarks(image, results, RIGHT_EYE_TOP_BOTTOM, COLOR_RED)
         draw_landmarks(image, results, RIGHT_EYE_LEFT_RIGHT, COLOR_RED)
         aspect_ratios_right = get_aspect_ratio(image, results, RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT)
+
+
         for idx, (ratio_left, ratio_right) in enumerate(zip(aspect_ratios_left, aspect_ratios_right)):
             ratio=(ratio_left + ratio_right) / 2   
             if ratio > min_tolerance:
-                frame_count +=1
+                frame_count[idx] +=1
             else:
-                frame_count = 0
-                
-            if frame_count > min_frame:
-                print(f"Drowsiness Detected in Face {idx+1}")
-            
-
-    cv.imshow('Face Mesh', image)
+                frame_count[idx] = 0       
+            if frame_count[idx] > min_frame:
+                drowsiness_detected[idx]=True
+                #print(f"Drowsiness Detected in Face {idx+1}")
+            else:
+                drowsiness_detected[idx]=False
+    timestamp = time.strftime("%H:%M:%S")
+    print(f"{timestamp}")
+    drowsy_faces = [idx+1 for idx, detected in enumerate(drowsiness_detected) if detected]
+    if drowsy_faces:
+        print("Drowsiness detected in face(s):", ", ".join(map(str, drowsy_faces)))
+    cv.imshow('EAR', image)
     if cv.waitKey(5) & 0xFF == 27:
         break
+    
 
 capture.release()
 cv.destroyAllWindows()
