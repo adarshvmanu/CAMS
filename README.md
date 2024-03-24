@@ -89,7 +89,7 @@ This Python script performs real-time head pose estimation using facial landmark
 12. Determine the direction of the user's gaze based on the head pose angles.
 13. Draw a line representing the direction of the gaze on the frame.
 14. Display the direction of gaze and head pose angles (x, y, z) on the frame.
-15. Calculate and displays the frames per second (FPS) of the video stream.
+15. Calculate and display the frames per second (FPS) of the video stream.
 16. Display the annotated frame with landmarks and gaze direction using OpenCV (`cv2.imshow()`).
 17. Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).
 
