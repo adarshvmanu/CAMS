@@ -24,9 +24,9 @@ This Python script detects drowsiness in faces captured through a webcam using f
 
 1. Import necessary libraries including mediapipe, cv2 (OpenCV), and scipy.
 2. Define functions:
-    draw_landmarks: Draws landmarks on the face detected by MediaPipe.
-    euclidean_distance: Calculates the Euclidean distance between two points.
-    get_aspect_ratio: Calculates the aspect ratio of specific facial landmarks.
+    1. `draw_landmarks`: Draws landmarks on the face detected by MediaPipe.
+    2. `euclidean_distance`: Calculates the Euclidean distance between two points.
+    3. `get_aspect_ratio`: Calculates the aspect ratio of specific facial landmarks.
 3. Set up configurations for MediaPipe FaceMesh model.
 4. Define configurations and constants such as colors and facial landmark indices.
 5. Initialize MediaPipe FaceMesh model and a video capture object.
@@ -48,7 +48,7 @@ Implementation :
 
 This Python script performs real-time head pose estimation using facial landmarks detected by the MediaPipe FaceMesh model.
 
-1. Import necessary libraries, including `cv2` (OpenCV), `mediapipe`, and `numpy`.
+1. Import necessary libraries, including cv2 (OpenCV), mediapipe, and numpy.
 2. Set up MediaPipe FaceMesh model for facial landmark detection.
 3. Initialize the webcam capture using OpenCV (`cv2.VideoCapture`).
 4. Enter a loop to continuously capture frames from the webcam (`cap.isOpened()`).
@@ -80,9 +80,9 @@ This Python script uses MediaPipe FaceMesh to detect facial landmarks and identi
 
 1. Import necessary libraries: `mediapipe` for face mesh detection, `cv2` for OpenCV operations, and `scipy.spatial.distance` for calculating distances.
 2. Define functions:
-   1. draw_landmarks: Draws specified landmarks on the face detected by MediaPipe FaceMesh.
-   2. euclidean_distance: Calculates the Euclidean distance between two points.
-   3. get_aspect_ratio: Calculates the aspect ratio of mouth landmarks.
+   1. `draw_landmarks`: Draws specified landmarks on the face detected by MediaPipe FaceMesh.
+   2. `euclidean_distance`: Calculates the Euclidean distance between two points.
+   3. `get_aspect_ratio`: Calculates the aspect ratio of mouth landmarks.
 3. Set configurations and constants for MediaPipe FaceMesh model, such as confidence thresholds, colors, and facial landmark indices for the mouth.
 4. Initialize the FaceMesh model and the video capture object.
 5. Enter a loop to continuously capture frames from the webcam.
@@ -94,6 +94,6 @@ This Python script uses MediaPipe FaceMesh to detect facial landmarks and identi
 11. Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).
 
 
-This modules will we integrated to produce the whole system which will produce real-time results which give tell if a class is attentive or not based on the average of each module's probability scores.
+This modules will be integrated to produce the whole system which will produce real-time results. This will give you the information on if a class is attentive or not based on the average of each module's probability scores.
 
 
