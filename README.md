@@ -10,7 +10,7 @@ We are using Mediapipe for this project which is an open-source framework by Goo
 
 Let's see how each module is build 
 
-1.**EAR (Eye Aspect Ratio)**
+**EAR (Eye Aspect Ratio)**
 
 The Functionalities of the Module :
  1. Tracks the movement of both the eyelids to sense the movement.
@@ -37,8 +37,7 @@ This Python script detects drowsiness in faces captured through a webcam using f
 10. Display the processed frame with landmarks drawn using OpenCV.
 11. Exit the loop if the 'Esc' key is pressed.
 
-
-2. **Yawn Detection**
+**Yawn Detection**
 
 **Functionalities of the module**
 
@@ -65,7 +64,7 @@ This Python script uses MediaPipe FaceMesh to detect facial landmarks and identi
 10. Display the annotated frame with landmarks and yawning detection using OpenCV (`cv2.imshow()`).
 11. Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).
 
-3. **HeadPose Detection**
+**HeadPose Detection**
 
 Functionalities of this Module:
  1. Tracks the head position in real time.
