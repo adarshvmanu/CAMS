@@ -91,7 +91,7 @@ while True:
                 print(f"Drowsiness detected in face {idx+1}")
             if ratio_lips < 1.8:
                 print(f"Yawning detected in face {idx+1}")
-            time.sleep(1)
+
 
     cv.imshow('Face Mesh', image)
     if cv.waitKey(5) & 0xFF == 27:
