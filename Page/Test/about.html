@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Document</title>
+</head>
+<body>
+    <nav id="desktop-nav">
+        <div class="logo">CAMS</div>
+        <div>
+            <ul class="nav-links">
+                <li><a href="Index.html">Home</a></li>
+                <li><a href="Team.html">Team</a></li>
+            </ul>
+        </div>
+    </nav>
+   <center><h2>Classroom Attention Monitoring System</h2></center> 
+    <p>This project aims to track the attentiveness of the students in a classroom. 
+        The project contains 3 modules which are split and integrated to achieve the final system.
+         We will be using modules such as :</p>
+<ul>
+ <li>Eye Closure and Opening Detection</li>
+ <li>Yawn Detection</li> 
+ <li>HeadPose Detection</li> 
+</ul>
+
+<p>We are using Mediapipe for this project which is an open-source framework by Google,
+ which helps to perform tasks which fall into the array of Computer Vision etc.
+  Mediapipe also reduces the dependence of GPU so that it becomes easy to work.</p>
+
+<p>Let's see how each module is build</p>
+<hr>
+<h3>EAR (Eye Aspect Ratio)</h3>
+
+The Functionalities of the Module :
+<ol>
+    <li>Tracks the movement of both the eyelids to sense the movement.</li>
+    <li>Involves the calculation of the Eye Aspect Ratio.</li>
+    <li>Calculates both the frequency and duration of the eyes blinking.</li>
+    <li>Finally detects drowsiness and prolonged closure.</li>
+    </ol>
+   
+ <h4>Implementation</h4>
+
+ <p>This Python script detects drowsiness in faces captured through a webcam using facial landmarks extracted 
+    with the MediaPipe FaceMesh model, OpenCV for video processing, and SciPy for calculating distances.</p>
+<br>
+<ol>
+    <li>Import necessary libraries including media pipe, cv2 (OpenCV), and scipy.</li> 
+     <li>Define functions:</li>
+     <ol>
+        <li>`draw_landmarks`: Draws landmarks on the face detected by MediaPipe.</li>
+        <li> `euclidean_distance`: Calculates the Euclidean distance between two points.</li>
+        <li>`get_aspect_ratio`: Calculates the aspect ratio of specific facial landmarks.</li>
+    </ol>
+    <li> Set up configurations for the MediaPipe FaceMesh model.</li>
+    <li>Define configurations and constants such as colors and facial landmark indices.</li>
+    <li>Initialize the MediaPipe FaceMesh model and a video capture object.</li>
+    <li>Enter a loop where it continuously captures frames from the webcam.</li>
+    <li>Process each frame through the FaceMesh model to detect faces and facial landmarks.</li>
+    <li>Calculate the aspect ratio for both eyes and determine if drowsiness is detected based on certain thresholds.</li>
+    <li>Print timestamps and alerts if drowsiness is detected in any of the faces.</li>
+    <li>Display the processed frame with landmarks drawn using OpenCV.</li>
+    <li>Exit the loop if the 'Esc' key is pressed.</li>
+</ol>
+<hr>
+<h3>Yawn Detection</h3>
+
+<h4>Functionalities of the module</h4>
+
+<ol>
+    <li>Calculates the Mouth Aspect Ratio to determine the degree of mouth openess.</li>
+    <li>Tracks the frequency of yawning.</li> 
+    <li> Measure the duration of yawning events.</li>
+</ol>
+
+
+<h4>Implementation</h4>
+
+<p>This Python script uses MediaPipe FaceMesh to detect facial landmarks and identifies yawning based 
+    on the aspect ratio of the mouth. Here's a breakdown of the code:</p>
+
+<ol>
+    <li>Import necessary libraries: `mediapipe` for face mesh detection, `cv2` for OpenCV 
+        operations, and `scipy.spatial.distance` for calculating distances.</li>
+    <li>Define functions:</li>
+    <ol>
+        <li>`draw_landmarks`: Draws specified landmarks on the face detected by MediaPipe FaceMesh.</li>
+        <li>`euclidean_distance`: Calculates the Euclidean distance between two points.</li>
+        <li>`get_aspect_ratio`: Calculates the aspect ratio of mouth landmarks.</li>
+    </ol>
+       
+    <li>Set configurations and constants for the MediaPipe FaceMesh model, such as confidence thresholds, colors, 
+        and facial landmark indices for the mouth.</li> 
+    <li>Initialize the FaceMesh model and the video capture object.</li>
+    <li>Enter a loop to continuously capture frames from the webcam.</li>
+    <li>Process each frame through the FaceMesh model to detect facial landmarks.</li>
+    <li>Calculate the aspect ratio of the mouth based on specified mouth landmarks.</li>
+    <li>Check if the aspect ratio is below a certain tolerance for yawning detection</li>
+    <li>If yawning is detected (aspect ratio below the tolerance for a certain
+         number of consecutive frames), print a message indicating the detection.</li>
+    <li>Display the annotated frame with landmarks and yawning detection using OpenCV (`cv2.imshow()`).</li>
+    <li>Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).</li>
+</ol>
+<hr>
+<h3>HeadPose Detection</h3>
+
+<h4>Functionalities of this Module:</h4>
+<ol>
+    <li>Tracks the head position in real time.</li>
+    <li>Find the head orientation by calculating pitch, yaw and roll angles.</li>
+</ol>
+
+<h4>Implementation</h4>
+
+<p>This Python script performs real-time head pose estimation using facial landmarks detected 
+    by the MediaPipe FaceMesh model.
+    </p>
+
+<ol>    
+<li>Import necessary libraries, including cv2 (OpenCV), mediapipe, and numpy.</li>
+<li>Set up MediaPipe FaceMesh model for facial landmark detection.</li>
+<li>Initialize the webcam capture using OpenCV (`cv2.VideoCapture`).</li>
+<li>Enter a loop to continuously capture frames from the webcam (`cap.isOpened()`).</li>
+<li>Read a frame from the webcam capture (`cap.read()`).</li>
+<li>Convert the color space of the frame from BGR to RGB and flips it horizontally for 
+    later selfie-view display.</li>
+<li>Process the frame through the FaceMesh model to detect facial landmarks.</li>
+<li>Convert the color space of the frame back to BGR</li>
+<li>Iterate through the detected facial landmarks and extracts specific points of
+    interest, such as nose, eyes, etc.</li>
+<li>Calculate the 3D coordinates of the detected facial landmarks.</li>
+<li>Estimate the head pose (yaw, pitch, roll) using the solved PnP (Perspective-n-Point) algorithm.</li>
+<li>Determine the direction of the user's gaze based on the head pose angles.</li>
+<li>Draw a line representing the direction of the gaze on the frame.</li>
+<li>Display the direction of gaze and head pose angles (x, y, z) on the frame.</li>
+<li>Display the annotated frame with landmarks and gaze direction using OpenCV (`cv2.imshow()`).
+<li>Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).</li>
+</ol>
+
+<p>This module will be integrated to produce the whole system which will produce real-time results. 
+    This will give you information on whether a class is attentive or not based on the average of each 
+    module's probability scores.</p>
+
+</body>
+</html>
