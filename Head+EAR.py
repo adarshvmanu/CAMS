@@ -62,6 +62,9 @@ LEFT_EYE_LEFT_RIGHT = [263, 362]
 RIGHT_EYE_TOP_BOTTOM = [159, 145]
 RIGHT_EYE_LEFT_RIGHT = [133, 33]
 
+UPPER_LOWER_LIPS = [13, 14]
+LEFT_RIGHT_LIPS = [78, 308]
+
 
 face_model = mp_face_mesh.FaceMesh(
     static_image_mode=STATIC_IMAGE_MODE,
@@ -70,7 +73,6 @@ face_model = mp_face_mesh.FaceMesh(
     min_tracking_confidence=TRACKING_CONFIDENCE)
 
 capture = cv.VideoCapture(0)
-
 
 min_frame = 6
 min_tolerance = 5.0
@@ -97,55 +99,42 @@ while True:
 
                             x, y = int(lm.x * img_w), int(lm.y * img_h)
 
-                            # Get the 2D Coordinates
-
                             face_2d = np.vstack([face_2d, [x, y]])
 
+                            face_3d = np.vstack([face_3d, [x, y, lm.z]])                        
 
-                            face_3d = np.vstack([face_3d, [x, y, lm.z]])     
-                    
-                    # Convert it to the NumPy array
+                    #Converting to numpy arrays
                     face_2d = np.array(face_2d, dtype=np.float64)
-
-                    # Convert it to the NumPy array
                     face_3d = np.array(face_3d, dtype=np.float64)
 
-                    # The camera matrix
+                    #Camera
                     focal_length = 1 * img_w
 
+                    #Camera Matrix and Distance Matrix
                     cam_matrix = np.array([ [focal_length, 0, img_h / 2],
                                             [0, focal_length, img_w / 2],
                                             [0, 0, 1]])
-
-                    # The distortion parameters
                     dist_matrix = np.zeros((4, 1), dtype=np.float64)
 
-                    # Solve PnP
+
                     success, rot_vec, trans_vec = cv.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
-
-                    # Get rotational matrix
                     rmat, jac = cv.Rodrigues(rot_vec)
-
-                    # Get angles
                     angles, mtxR, mtxQ, Qx, Qy, Qz = cv.RQDecomp3x3(rmat)
 
-                    # Get the y rotation degree
                     x = angles[0] * 360
                     y = angles[1] * 360
                     z = angles[2] * 360
-                
-
-                    # See where the user's head tilting
+                    head=[]
                     if y < -10:
-                        text = "Looking Left"
+                        head.append("Left")
                     elif y > 10:
-                        text = "Looking Right"
+                        head.append("Right")
                     elif x < -10:
-                        text = "Looking Down"
-                    elif x > 12:
-                        text = "Looking Up"
+                        head.append("Down")
+                    elif x > 15:
+                        head.append("Up")
                     else:
-                        text = "Forward"
+                        head.append("Forward")
 
                     # Display the nose direction
                     nose_3d_projection, jacobian = cv.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
@@ -153,9 +142,9 @@ while True:
                     p1 = (int(nose_2d[0]), int(nose_2d[1]))
                     p2 = (int(nose_2d[0] + y * 10) , int(nose_2d[1] - x * 10))
                     
-                    cv.line(image, p1, p2, (255, 0, 0), 3)  
+                    cv.line(image, p1, p2, (255, 0, 0), 3) 
 
-                    cv.putText(image, text, (20, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2) 
+                    #cv.putText(image, text, (20, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2) 
 
         draw_landmarks(image, results, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
         draw_landmarks(image, results, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
@@ -165,27 +154,36 @@ while True:
         draw_landmarks(image, results, RIGHT_EYE_LEFT_RIGHT, COLOR_RED)
         aspect_ratios_right = get_aspect_ratio(image, results, RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT)
 
+        draw_landmarks(image, results, LEFT_RIGHT_LIPS, COLOR_BLUE)
+        draw_landmarks(image, results, UPPER_LOWER_LIPS, COLOR_BLUE)
+        aspect_ratios_lips = get_aspect_ratio(image, results, UPPER_LOWER_LIPS, LEFT_RIGHT_LIPS )
 
-        for idx, (ratio_left, ratio_right) in enumerate(zip(aspect_ratios_left, aspect_ratios_right)):
+
+        for idx, (ratio_left, ratio_right,ratio_lips) in enumerate(zip(aspect_ratios_left, aspect_ratios_right,aspect_ratios_lips)):
             ratio=(ratio_left + ratio_right) / 2   
             if ratio > min_tolerance:
                 frame_count[idx] +=1
             else:
-                frame_count[idx] = 0       
+                frame_count[idx] = 0
+       
             if frame_count[idx] > min_frame:
                 drowsiness_detected[idx]=True
-                #print(f"Drowsiness Detected in Face {idx+1}")
             else:
                 drowsiness_detected[idx]=False
+
+            if ratio_lips < 1.8:
+                print(f"Yawn detected in {idx+1}")
+
     timestamp = time.strftime("%H:%M:%S")
     print(f"{timestamp}")
     drowsy_faces = [idx+1 for idx, detected in enumerate(drowsiness_detected) if detected]
     if drowsy_faces:
         print("Drowsiness detected in face(s):", ", ".join(map(str, drowsy_faces)))
-    cv.imshow('EAR', image)
+
+
+    cv.imshow('Integrated', image)
     if cv.waitKey(5) & 0xFF == 27:
         break
     
-
 capture.release()
 cv.destroyAllWindows()

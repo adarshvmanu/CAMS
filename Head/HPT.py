@@ -25,7 +25,7 @@ face_model = mp_face_mesh.FaceMesh(
     min_detection_confidence=DETECTION_CONFIDENCE,
     min_tracking_confidence=TRACKING_CONFIDENCE)
 
-capture = cv.VideoCapture(1)
+capture = cv.VideoCapture(0)
 
 
 min_frame = 6
