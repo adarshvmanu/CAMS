@@ -1,6 +1,7 @@
 import mediapipe as mp
 import cv2 as cv
 from scipy.spatial import distance as dis
+import time
 
 def draw_landmarks(image, outputs, land_mark, color):
     height, width = image.shape[:2]
@@ -65,7 +66,9 @@ face_model = mp_face_mesh.FaceMesh(
 
 capture = cv.VideoCapture(0)
 
-frame_count = 0
+frame_count = [0]*MAX_NUM_FACES
+yawn_detect =[False]*MAX_NUM_FACES
+yawning_faces =[]
 min_frame = 6
 min_tolerance = 1.8
 
@@ -85,13 +88,20 @@ while True:
 
         for idx, ratio in enumerate(aspect_ratios): 
             if ratio < min_tolerance:
-                frame_count +=1
+                frame_count[idx] +=1
             else:
-                frame_count = 0
+                frame_count[idx] = 0
                 
-            if frame_count > min_frame:
-                print(f"Yawning Detected in Face {idx+1}")
-            
+            if frame_count[idx] > min_frame:
+                yawn_detect[idx]= True
+            else:
+                yawn_detect[idx]= False
+
+    timestamp = time.strftime("%H:%M:%S")
+    print(f"{timestamp}")
+    yawning_faces = [str(idx+1) for idx, detected in enumerate(yawn_detect) if detected]
+    if yawning_faces:
+        print("Drowsiness detected in face(s):", ", ".join(yawning_faces))
 
     cv.imshow('Face Mesh', image)
     if cv.waitKey(5) & 0xFF == 27:
