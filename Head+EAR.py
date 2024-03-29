@@ -3,6 +3,10 @@ import cv2 as cv
 from scipy.spatial import distance as dis
 import time
 import numpy as np
+import json
+from statistics import mean
+
+overall_score=[]
 
 def draw_landmarks(image, outputs, land_mark, color):
     height, width = image.shape[:2]
@@ -37,7 +41,55 @@ def get_aspect_ratio(image, outputs, top_bottom, left_right):
         aspect_ratios.append(aspect_ratio)
     return aspect_ratios
 
+def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
+    
+    sleep_weight = 0.5
+    yawn_weight = 0.3
+    facing_weight = 0.2
+    attention_scores = []
+    facing_count=0
+    sleep_count=0
+    yawn_count=0
+    size=len(sleep_detected)
 
+    for i in range(size):
+        sleep_score = 10 if sleep_detected[i] else 50
+        yawn_score = 10 if yawn_detected[i] else 50
+        facing_score = 50 if facing_classroom[i] else 0
+
+        if facing_classroom[i]==True:
+            facing_count+=1
+        if yawn_detected[i]==True:
+            yawn_count+=1
+        if sleep_detected==True:
+            sleep_count+=1
+        
+        total_score = (sleep_score * sleep_weight) + (yawn_score * yawn_weight) + (facing_score * facing_weight)
+        attention_score = min(max(total_score, 0), 100)
+        attention_scores.append(attention_score)
+        
+    attention_score=mean(attention_scores) 
+    overall_score.append(attention_score)  
+    sleep=((sleep_count)/size)*100
+    yawn=((yawn_count)/size)*100
+    head=((facing_count)/size)*100
+    pack_json(attention_score,sleep,yawn,head)
+
+def pack_json(attention_score,sleep,yawn,head):
+    current_time = time.localtime()
+    timestamp = time.strftime("%H-%M", current_time)
+    data = {
+        "time": timestamp,
+        "attention_scores": attention_score,
+        "sleep_detected": sleep,
+        "yawn_detected": yawn,
+        "facing_classroom": head,
+        "overall_score" : mean(overall_score)
+    }
+    json_data = json.dumps(data)
+    with open('data.json', 'w') as file:
+        json.dump({"chart": json_data}, file)
+    
 face_mesh = mp.solutions.face_mesh
 draw_utils = mp.solutions.drawing_utils
 landmark_style = draw_utils.DrawingSpec((0,255,0), thickness=1, circle_radius=1)
@@ -75,9 +127,12 @@ face_model = mp_face_mesh.FaceMesh(
 capture = cv.VideoCapture(0)
 
 min_frame = 6
-min_tolerance = 5.0
+min_tolerance = 4.7
 frame_count=[0]*MAX_NUM_FACES
-drowsiness_detected=[False]*MAX_NUM_FACES
+sleep_detected=[False]*MAX_NUM_FACES
+yawn_detected=[False]*MAX_NUM_FACES
+facing_classroom=[True]*MAX_NUM_FACES
+overall_score=[]
 
 while True:
     ret, image = capture.read()
@@ -144,8 +199,6 @@ while True:
                     
                     cv.line(image, p1, p2, (255, 0, 0), 3) 
 
-                    #cv.putText(image, text, (20, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2) 
-
         draw_landmarks(image, results, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
         draw_landmarks(image, results, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
         aspect_ratios_left = get_aspect_ratio(image, results, LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT)
@@ -167,19 +220,20 @@ while True:
                 frame_count[idx] = 0
        
             if frame_count[idx] > min_frame:
-                drowsiness_detected[idx]=True
+                sleep_detected[idx]=True
             else:
-                drowsiness_detected[idx]=False
+                sleep_detected[idx]=False
 
             if ratio_lips < 1.8:
-                print(f"Yawn detected in {idx+1}")
+                yawn_detected[idx]=True
 
-    timestamp = time.strftime("%H:%M:%S")
-    print(f"{timestamp}")
-    drowsy_faces = [idx+1 for idx, detected in enumerate(drowsiness_detected) if detected]
-    if drowsy_faces:
-        print("Drowsiness detected in face(s):", ", ".join(map(str, drowsy_faces)))
+    for idx, t in enumerate(head):
+        if t=="Forward":
+            facing_classroom.append(True)
+        else :
+            facing_classroom.append(False)
 
+    calculate_attention_score(sleep_detected,yawn_detected,facing_classroom)
 
     cv.imshow('Integrated', image)
     if cv.waitKey(5) & 0xFF == 27:

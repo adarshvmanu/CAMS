@@ -99,3 +99,54 @@ while True:
 
 capture.release()
 cv.destroyAllWindows()
+
+
+###
+
+def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
+    
+    sleep_weight = 0.5
+    yawn_weight = 0.3
+    facing_weight = 0.2
+    attention_scores = []
+    facing_count=0
+    sleep_count=0
+    yawn_count=0
+    size=len(sleep_detected)
+
+    for i in range(size):
+        sleep_score = 10 if sleep_detected[i] else 50
+        yawn_score = 10 if yawn_detected[i] else 50
+        facing_score = 50 if facing_classroom[i] else 0
+
+        if facing_classroom[i]==True:
+            facing_count+=1
+        if yawn_detected[i]==True:
+            yawn_count+=1
+        if sleep_detected==True:
+            sleep_count+=1
+        
+        total_score = (sleep_score * sleep_weight) + (yawn_score * yawn_weight) + (facing_score * facing_weight)
+        attention_score = min(max(total_score, 0), 100)
+        attention_scores.append(attention_score)
+        
+    attention_score=mean(attention_scores) 
+    overall_score.append(attention_score)  
+    sleep=((sleep_count)/size)*100
+    yawn=((yawn_count)/size)*100
+    head=((facing_count)/size)*100
+    pack_json(attention_score,sleep,yawn,head)
+
+def pack_json(attention_score,sleep,yawn,head):
+    timestamp = time.now().strftime("%H:%M")
+    data = {
+        "time": timestamp,
+        "attention_scores": attention_score,
+        "sleep_detected": sleep,
+        "yawn_detected": yawn,
+        "facing_classroom": head,
+        "overall_score" : mean(overall_score)
+    }
+    json_data = json.dumps(data)
+    with open('data.json', 'w') as file:
+        json.dump({"chart": json_data}, file)
