@@ -1,1 +1,3 @@
-{"chart": "{\"time\": \"23-25\", \"attention_scores\": 47.6, \"sleep_detected\": 0.0, \"yawn_detected\": 20.0, \"facing_classroom\": 100.0, \"overall_score\": 49.354283096655976}"}
+{
+    "chart": "{\"time\": \"23-25\", \"attention_scores\": 47.6, \"sleep_detected\": 0.0, \"yawn_detected\": 20.0, \"facing_classroom\": 100.0, \"overall_score\": 49.354283096655976}"
+}
