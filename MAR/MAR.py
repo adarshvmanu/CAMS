@@ -88,11 +88,6 @@ while True:
 
         for idx, ratio in enumerate(aspect_ratios): 
             if ratio < min_tolerance:
-                frame_count[idx] +=1
-            else:
-                frame_count[idx] = 0
-                
-            if frame_count[idx] > min_frame:
                 yawn_detect[idx]= True
             else:
                 yawn_detect[idx]= False

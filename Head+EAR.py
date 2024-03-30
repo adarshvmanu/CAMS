@@ -75,7 +75,7 @@ face_model = mp_face_mesh.FaceMesh(
 capture = cv.VideoCapture(0)
 
 min_frame = 6
-min_tolerance = 5.0
+min_tolerance = 4.6
 frame_count=[0]*MAX_NUM_FACES
 drowsiness_detected=[False]*MAX_NUM_FACES
 
@@ -125,7 +125,7 @@ while True:
                     y = angles[1] * 360
                     z = angles[2] * 360
                     head=[]
-                    if y < -10:
+                    if y < -13:
                         head.append("Left")
                     elif y > 10:
                         head.append("Right")

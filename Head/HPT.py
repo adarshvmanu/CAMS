@@ -78,13 +78,13 @@ while True:
                     y = angles[1] * 360
                     z = angles[2] * 360
                     text=[]
-                    if y < -10:
+                    if y < -16:
                         text.append("Left")
-                    elif y > 10:
+                    elif y > 16:
                         text.append("Right")
                     elif x < -10:
                         text.append("Down")
-                    elif x > 15:
+                    elif x > 20:
                         text.append("Up")
                     else:
                         text.append("Forward")
