@@ -43,18 +43,15 @@ def get_aspect_ratio(image, outputs, top_bottom, left_right):
 
 def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,size):
     
-    sleep_weight = 0.5
-    yawn_weight = 0.3
-    facing_weight = 0.2
     attention_scores = []
     facing_count=0
     sleep_count=0
     yawn_count=0
 
     for i in range(size):
-        sleep_score = 10 if sleep_detected[i] else 100
-        yawn_score = 10 if yawn_detected[i] else 100
-        facing_score = 50 if facing_classroom[i] else 0
+        sleep_score = 0 if sleep_detected[i] else 100
+        yawn_score = 0 if yawn_detected[i] else 100
+        facing_score = 100 if facing_classroom[i] else 0
 
         if facing_classroom[i]==True:
             facing_count+=1
@@ -63,9 +60,8 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
         if sleep_detected==True:
             sleep_count+=1
         
-        total_score = (sleep_score * sleep_weight) + (yawn_score * yawn_weight) + (facing_score * facing_weight)
-        attention_score = total_score
-        attention_scores.append(attention_score)
+        total_score = (sleep_score+yawn_score+facing_score)/3
+        attention_scores.append(total_score)
         
     attention_score=mean(attention_scores) 
     overall_score.append(attention_score)  
