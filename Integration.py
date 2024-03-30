@@ -41,7 +41,7 @@ def get_aspect_ratio(image, outputs, top_bottom, left_right):
         aspect_ratios.append(aspect_ratio)
     return aspect_ratios
 
-def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
+def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,size):
     
     sleep_weight = 0.5
     yawn_weight = 0.3
@@ -50,7 +50,6 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
     facing_count=0
     sleep_count=0
     yawn_count=0
-    size=len(sleep_detected)
 
     for i in range(size):
         sleep_score = 10 if sleep_detected[i] else 100
@@ -136,18 +135,18 @@ overall_score=[]
 
 
 while True:
-    ret, image = capture.read()
-    if not ret:
+    success, image = capture.read()
+    if not success:
         break
     
     image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
     results = face_model.process(image_rgb)
     img_h, img_w, img_c = image.shape
     head=[]
-
+    face_count=0
     if results.multi_face_landmarks:
         for face_landmarks in results.multi_face_landmarks:
-            
+            face_count+=1
             face_2d = np.empty((0, 2), dtype=np.float64)
             face_3d = np.empty((0, 3), dtype=np.float64)
             for idx, lm in enumerate(face_landmarks.landmark):
@@ -239,8 +238,9 @@ while True:
         else:
             facing_classroom[idx]=False
 
-    calculate_attention_score(sleep_detected,yawn_detected,facing_classroom)
+    calculate_attention_score(sleep_detected,yawn_detected,facing_classroom,face_count)
     print(f"Sleep: {sleep_detected} Yawn : {yawn_detected} Facing : {facing_classroom}\n")
+    face_count=0
 
 
     cv.imshow('Integrated', image)

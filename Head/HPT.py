@@ -42,8 +42,10 @@ while True:
     img_h, img_w, img_c = image.shape
 
     text=[]
+    face_count=0
     if results.multi_face_landmarks:
         for face_landmarks in (results.multi_face_landmarks):
+            face_count+=1
             face_2d = np.empty((0, 2), dtype=np.float64)
             face_3d = np.empty((0, 3), dtype=np.float64)
             for idx, lm in enumerate(face_landmarks.landmark):
