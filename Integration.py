@@ -53,7 +53,7 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
     size=len(sleep_detected)
 
     for i in range(size):
-        sleep_score = 10 if sleep_detected[i] else 50
+        sleep_score = 10 if sleep_detected[i] else 100
         yawn_score = 10 if yawn_detected[i] else 100
         facing_score = 50 if facing_classroom[i] else 0
 
@@ -65,7 +65,7 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
             sleep_count+=1
         
         total_score = (sleep_score * sleep_weight) + (yawn_score * yawn_weight) + (facing_score * facing_weight)
-        attention_score = min(max(total_score, 0), 100)
+        attention_score = total_score
         attention_scores.append(attention_score)
         
     attention_score=mean(attention_scores) 
@@ -100,7 +100,7 @@ mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
 
 STATIC_IMAGE_MODE = False
-MAX_NUM_FACES = 5
+MAX_NUM_FACES = 4
 DETECTION_CONFIDENCE = 0.6
 TRACKING_CONFIDENCE = 0.6
 
@@ -131,8 +131,9 @@ min_tolerance = 4.7
 frame_count=[0]*MAX_NUM_FACES
 sleep_detected=[False]*MAX_NUM_FACES
 yawn_detected=[False]*MAX_NUM_FACES
-facing_classroom=[True]*MAX_NUM_FACES
+facing_classroom=[False]*MAX_NUM_FACES
 overall_score=[]
+
 
 while True:
     ret, image = capture.read()
@@ -142,62 +143,65 @@ while True:
     image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
     results = face_model.process(image_rgb)
     img_h, img_w, img_c = image.shape
-    face_2d = np.empty((0, 2), dtype=np.float64)
-    face_3d = np.empty((0, 3), dtype=np.float64)
+    head=[]
+
     if results.multi_face_landmarks:
         for face_landmarks in results.multi_face_landmarks:
-                    for idx, lm in enumerate(face_landmarks.landmark):
-                        if idx == 33 or idx == 263 or idx == 1 or idx == 61 or idx == 291 or idx == 199:
-                            if idx == 1:
-                                nose_2d = (lm.x * img_w, lm.y * img_h)
-                                nose_3d = (lm.x * img_w, lm.y * img_h, lm.z * 3000)
+            
+            face_2d = np.empty((0, 2), dtype=np.float64)
+            face_3d = np.empty((0, 3), dtype=np.float64)
+            for idx, lm in enumerate(face_landmarks.landmark):
+                if idx == 33 or idx == 263 or idx == 1 or idx == 61 or idx == 291 or idx == 199:
+                    if idx == 1:
+                        nose_2d = (lm.x * img_w, lm.y * img_h)
+                        nose_3d = (lm.x * img_w, lm.y * img_h, lm.z * 3000)
 
-                            x, y = int(lm.x * img_w), int(lm.y * img_h)
+                    x, y = int(lm.x * img_w), int(lm.y * img_h)
 
-                            face_2d = np.vstack([face_2d, [x, y]])
+                    face_2d = np.vstack([face_2d, [x, y]])
 
-                            face_3d = np.vstack([face_3d, [x, y, lm.z]])                        
+                    face_3d = np.vstack([face_3d, [x, y, lm.z]])                        
 
-                    #Converting to numpy arrays
-                    face_2d = np.array(face_2d, dtype=np.float64)
-                    face_3d = np.array(face_3d, dtype=np.float64)
+            #Converting to numpy arrays
+            face_2d = np.array(face_2d, dtype=np.float64)
+            face_3d = np.array(face_3d, dtype=np.float64)
 
-                    #Camera
-                    focal_length = 1 * img_w
+            #Camera
+            focal_length = 1 * img_w
 
-                    #Camera Matrix and Distance Matrix
-                    cam_matrix = np.array([ [focal_length, 0, img_h / 2],
-                                            [0, focal_length, img_w / 2],
-                                            [0, 0, 1]])
-                    dist_matrix = np.zeros((4, 1), dtype=np.float64)
+            #Camera Matrix and Distance Matrix
+            cam_matrix = np.array([ [focal_length, 0, img_h / 2],
+                                    [0, focal_length, img_w / 2],
+                                    [0, 0, 1]])
+            dist_matrix = np.zeros((4, 1), dtype=np.float64)
 
 
-                    success, rot_vec, trans_vec = cv.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
-                    rmat, jac = cv.Rodrigues(rot_vec)
-                    angles, mtxR, mtxQ, Qx, Qy, Qz = cv.RQDecomp3x3(rmat)
+            success, rot_vec, trans_vec = cv.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
+            rmat, jac = cv.Rodrigues(rot_vec)
+            angles, mtxR, mtxQ, Qx, Qy, Qz = cv.RQDecomp3x3(rmat)
 
-                    x = angles[0] * 360
-                    y = angles[1] * 360
-                    z = angles[2] * 360
-                    head=[]
-                    if y < -10:
-                        head.append("Left")
-                    elif y > 10:
-                        head.append("Right")
-                    elif x < -10:
-                        head.append("Down")
-                    elif x > 15:
-                        head.append("Up")
-                    else:
-                        head.append("Forward")
+            x = angles[0] * 360
+            y = angles[1] * 360
+            z = angles[2] * 360
+            
+            if y < -10:
+                head.append("Left")
+            elif y > 10:
+                head.append("Right")
+            elif x < -10:
+                head.append("Down")
+            elif x > 15:
+                head.append("Up")
+            else:
+                head.append("Forward")
 
-                    # Display the nose direction
-                    nose_3d_projection, jacobian = cv.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
+            # Display the nose direction
+            nose_3d_projection, jacobian = cv.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
 
-                    p1 = (int(nose_2d[0]), int(nose_2d[1]))
-                    p2 = (int(nose_2d[0] + y * 10) , int(nose_2d[1] - x * 10))
-                    
-                    cv.line(image, p1, p2, (255, 0, 0), 3) 
+            p1 = (int(nose_2d[0]), int(nose_2d[1]))
+            p2 = (int(nose_2d[0] + y * 10) , int(nose_2d[1] - x * 10))
+            
+            cv.line(image, p1, p2, (255, 0, 0), 3) 
 
         draw_landmarks(image, results, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
         draw_landmarks(image, results, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
@@ -226,14 +230,18 @@ while True:
 
             if ratio_lips < 1.8:
                 yawn_detected[idx]=True
+            else:
+                yawn_detected[idx]=False
 
     for idx, t in enumerate(head):
-        if t=="Forward":
-            facing_classroom.append(True)
-        else :
-            facing_classroom.append(False)
+        if head[idx]=="Forward":
+            facing_classroom[idx]=True
+        else:
+            facing_classroom[idx]=False
 
     calculate_attention_score(sleep_detected,yawn_detected,facing_classroom)
+    print(f"Sleep: {sleep_detected} Yawn : {yawn_detected} Facing : {facing_classroom}\n")
+
 
     cv.imshow('Integrated', image)
     if cv.waitKey(5) & 0xFF == 27:
