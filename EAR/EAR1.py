@@ -26,13 +26,17 @@ def get_aspect_ratio(image, outputs, top_bottom, left_right):
     for face_landmarks in outputs.multi_face_landmarks:
         top = face_landmarks.landmark[top_bottom[0]]
         bottom = face_landmarks.landmark[top_bottom[1]]
-        top_bottom_dis = euclidean_distance(image, top, bottom)
+        top_bottom_dis_1 = euclidean_distance(image, top, bottom)
         
+        top = face_landmarks.landmark[top_bottom[2]]
+        bottom = face_landmarks.landmark[top_bottom[3]]
+        top_bottom_dis_2 = euclidean_distance(image, top, bottom)
+    
         left = face_landmarks.landmark[left_right[0]]
         right = face_landmarks.landmark[left_right[1]]
         left_right_dis = euclidean_distance(image, left, right)
         
-        aspect_ratio = left_right_dis / top_bottom_dis
+        aspect_ratio = (top_bottom_dis_1+top_bottom_dis_2)/(2*left_right_dis)
         aspect_ratios.append(aspect_ratio)
     return aspect_ratios
 
@@ -54,11 +58,11 @@ TRACKING_CONFIDENCE = 0.6
 COLOR_RED = (0, 0, 255)
 COLOR_BLUE = (255, 0, 0)
 COLOR_GREEN = (0, 255, 0)
-
-LEFT_EYE_TOP_BOTTOM = [386, 374]
+#[385,380][386,374]
+LEFT_EYE_TOP_BOTTOM = [386, 374, 385, 380]
 LEFT_EYE_LEFT_RIGHT = [263, 362]
-
-RIGHT_EYE_TOP_BOTTOM = [159, 145]
+#[160,144][159,145][158,153]
+RIGHT_EYE_TOP_BOTTOM = [160, 144, 158, 153]
 RIGHT_EYE_LEFT_RIGHT = [133, 33]
 
 
@@ -72,7 +76,7 @@ capture = cv.VideoCapture(0)
 
 
 min_frame = 6
-min_tolerance = 5.0
+min_tolerance = 0.21
 frame_count=[0]*MAX_NUM_FACES
 drowsiness_detected=[False]*MAX_NUM_FACES
 
@@ -96,7 +100,7 @@ while True:
 
         for idx, (ratio_left, ratio_right) in enumerate(zip(aspect_ratios_left, aspect_ratios_right)):
             ratio=(ratio_left + ratio_right) / 2   
-            if ratio > min_tolerance:
+            if ratio < min_tolerance:
                 frame_count[idx] +=1
             else:
                 frame_count[idx] = 0       

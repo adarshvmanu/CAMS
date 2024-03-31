@@ -41,7 +41,7 @@ def get_aspect_ratio(image, outputs, top_bottom, left_right):
         aspect_ratios.append(aspect_ratio)
     return aspect_ratios
 
-def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
+def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,size):
     sleep_weight = 0.5
     yawn_weight = 0.3
     facing_weight = 0.2
@@ -49,7 +49,6 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
     facing_count=0
     sleep_count=0
     yawn_count=0
-    size = len(sleep_detected)
 
     for i in range(size):
         sleep_score = 0 if sleep_detected[i] else 100
