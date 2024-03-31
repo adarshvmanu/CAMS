@@ -49,6 +49,7 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
     facing_count=0
     sleep_count=0
     yawn_count=0
+    size = len(sleep_detected)
 
     for i in range(size):
         sleep_score = 0 if sleep_detected[i] else 100
