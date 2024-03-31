@@ -42,7 +42,9 @@ def get_aspect_ratio(image, outputs, top_bottom, left_right):
     return aspect_ratios
 
 def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,size):
-    
+    sleep_weight = 0.5
+    yawn_weight = 0.3
+    facing_weight = 0.2
     attention_scores = []
     facing_count=0
     sleep_count=0
@@ -57,10 +59,13 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
             facing_count+=1
         if yawn_detected[i]==True:
             yawn_count+=1
-        if sleep_detected==True:
+        if sleep_detected[i]==True:
             sleep_count+=1
+            sleep_weight = 0.7
+            yawn_weight = 0.2
+            facing_weight = 0.1
         
-        total_score = (sleep_score+yawn_score+facing_score)/3
+        total_score = (sleep_score * sleep_weight) + (yawn_score * yawn_weight) + (facing_score * facing_weight)
         attention_scores.append(total_score)
         
     attention_score=mean(attention_scores) 
@@ -69,7 +74,7 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
     yawn=((yawn_count)/size)*100
     head=((facing_count)/size)*100
     pack_json(attention_score,sleep,yawn,head)
-
+    
 def pack_json(attention_score,sleep,yawn,head):
     current_time = time.localtime()
     timestamp = time.strftime("%H-%M", current_time)

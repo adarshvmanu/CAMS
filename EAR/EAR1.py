@@ -26,13 +26,17 @@ def get_aspect_ratio(image, outputs, top_bottom, left_right):
     for face_landmarks in outputs.multi_face_landmarks:
         top = face_landmarks.landmark[top_bottom[0]]
         bottom = face_landmarks.landmark[top_bottom[1]]
-        top_bottom_dis = euclidean_distance(image, top, bottom)
+        top_bottom_dis_1 = euclidean_distance(image, top, bottom)
         
+        top = face_landmarks.landmark[top_bottom[2]]
+        bottom = face_landmarks.landmark[top_bottom[3]]
+        top_bottom_dis_2 = euclidean_distance(image, top, bottom)
+    
         left = face_landmarks.landmark[left_right[0]]
         right = face_landmarks.landmark[left_right[1]]
         left_right_dis = euclidean_distance(image, left, right)
         
-        aspect_ratio = left_right_dis / top_bottom_dis
+        aspect_ratio = (top_bottom_dis_1+top_bottom_dis_2)/(2*left_right_dis)
         aspect_ratios.append(aspect_ratio)
     return aspect_ratios
 
@@ -54,9 +58,13 @@ TRACKING_CONFIDENCE = 0.6
 COLOR_RED = (0, 0, 255)
 COLOR_BLUE = (255, 0, 0)
 COLOR_GREEN = (0, 255, 0)
+#[385,380][386,374]
+LEFT_EYE_TOP_BOTTOM = [386, 374, 385, 380]
+LEFT_EYE_LEFT_RIGHT = [263, 362]
+#[160,144][159,145][158,153]
+RIGHT_EYE_TOP_BOTTOM = [160, 144, 158, 153]
+RIGHT_EYE_LEFT_RIGHT = [133, 33]
 
-MOUTH_TOP_BOTTOM = [12,15]
-MOUTH_LEFT_RIGHT = [78,308]
 
 face_model = mp_face_mesh.FaceMesh(
     static_image_mode=STATIC_IMAGE_MODE,
@@ -66,11 +74,11 @@ face_model = mp_face_mesh.FaceMesh(
 
 capture = cv.VideoCapture(0)
 
-frame_count = [0]*MAX_NUM_FACES
-yawn_detect =[False]*MAX_NUM_FACES
-yawning_faces =[]
+
 min_frame = 6
-min_tolerance = 1.8
+min_tolerance = 0.21
+frame_count=[0]*MAX_NUM_FACES
+drowsiness_detected=[False]*MAX_NUM_FACES
 
 while True:
     ret, image = capture.read()
@@ -79,29 +87,37 @@ while True:
     
     image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
     results = face_model.process(image_rgb)
-
+    
     if results.multi_face_landmarks:
-        draw_landmarks(image, results, MOUTH_TOP_BOTTOM, COLOR_RED)
-        draw_landmarks(image, results, MOUTH_LEFT_RIGHT, COLOR_RED)
-        aspect_ratios = get_aspect_ratio(image, results, MOUTH_TOP_BOTTOM, MOUTH_LEFT_RIGHT)
+        draw_landmarks(image, results, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
+        draw_landmarks(image, results, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
+        aspect_ratios_left = get_aspect_ratio(image, results, LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT)
+
+        draw_landmarks(image, results, RIGHT_EYE_TOP_BOTTOM, COLOR_RED)
+        draw_landmarks(image, results, RIGHT_EYE_LEFT_RIGHT, COLOR_RED)
+        aspect_ratios_right = get_aspect_ratio(image, results, RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT)
 
 
-        for idx, ratio in enumerate(aspect_ratios): 
+        for idx, (ratio_left, ratio_right) in enumerate(zip(aspect_ratios_left, aspect_ratios_right)):
+            ratio=(ratio_left + ratio_right) / 2   
             if ratio < min_tolerance:
-                yawn_detect[idx]= True
+                frame_count[idx] +=1
             else:
-                yawn_detect[idx]= False
-
+                frame_count[idx] = 0       
+            if frame_count[idx] > min_frame:
+                drowsiness_detected[idx]=True
+                #print(f"Drowsiness Detected in Face {idx+1}")
+            else:
+                drowsiness_detected[idx]=False
     timestamp = time.strftime("%H:%M:%S")
     print(f"{timestamp}")
-    yawning_faces = [str(idx+1) for idx, detected in enumerate(yawn_detect) if detected]
-    if yawning_faces:
-        print("Drowsiness detected in face(s):", ", ".join(yawning_faces))
-
-    cv.imshow('Face Mesh', image)
+    drowsy_faces = [idx+1 for idx, detected in enumerate(drowsiness_detected) if detected]
+    if drowsy_faces:
+        print("Drowsiness detected in face(s):", ", ".join(map(str, drowsy_faces)))
+    cv.imshow('EAR', image)
     if cv.waitKey(5) & 0xFF == 27:
         break
-
+    
 
 capture.release()
 cv.destroyAllWindows()
