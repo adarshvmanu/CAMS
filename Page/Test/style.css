@@ -2,15 +2,15 @@ body {
     font-family: "Poppins", sans-serif;
     margin-left: 140px;
     margin-right: 140px;
-    background-color: #ffffff;
+    background-color: #f4f7ff;
 }
 
 .card {
     border: none;
     margin-top: 20px;   
     height: 250px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
 }
 
 nav,
