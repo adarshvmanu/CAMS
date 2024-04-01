@@ -239,8 +239,9 @@ while True:
         else:
             facing_classroom[idx]=False
 
-    calculate_attention_score(sleep_detected,yawn_detected,facing_classroom,face_count)
-    print(f"Sleep: {sleep_detected} Yawn : {yawn_detected} Facing : {facing_classroom}\n")
+    if face_count != 0:
+        calculate_attention_score(sleep_detected,yawn_detected,facing_classroom,face_count)
+        print(f"Sleep: {sleep_detected} Yawn : {yawn_detected} Facing : {facing_classroom}\n")
     face_count=0
 
 
