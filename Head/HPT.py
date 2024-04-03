@@ -3,12 +3,10 @@ import cv2 as cv
 import time
 import numpy as np
 
-
 face_mesh = mp.solutions.face_mesh
 draw_utils = mp.solutions.drawing_utils
 landmark_style = draw_utils.DrawingSpec((0,255,0), thickness=1, circle_radius=1)
 connection_style = draw_utils.DrawingSpec((0,0,255), thickness=1, circle_radius=1)
-
 
 mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
@@ -27,7 +25,6 @@ face_model = mp_face_mesh.FaceMesh(
 
 capture = cv.VideoCapture(0)
 
-
 min_frame = 6
 min_tolerance = 5.0
 
@@ -42,10 +39,8 @@ while True:
     img_h, img_w, img_c = image.shape
 
     text=[]
-    face_count=0
     if results.multi_face_landmarks:
         for face_landmarks in (results.multi_face_landmarks):
-            face_count+=1
             face_2d = np.empty((0, 2), dtype=np.float64)
             face_3d = np.empty((0, 3), dtype=np.float64)
             for idx, lm in enumerate(face_landmarks.landmark):
@@ -57,7 +52,6 @@ while True:
                     x, y = int(lm.x * img_w), int(lm.y * img_h)
 
                     face_2d = np.vstack([face_2d, [x, y]])
-
                     face_3d = np.vstack([face_3d, [x, y, lm.z]])                        
 
             #Converting to numpy arrays
@@ -106,11 +100,9 @@ while True:
         for idx, t in enumerate(text):
              print(f"{idx+1} is Looking {text[idx]}")
                
-
     cv.imshow('Head Pose', image)
     if cv.waitKey(5) & 0xFF == 27:
         break
     
-
 capture.release()
 cv.destroyAllWindows()
