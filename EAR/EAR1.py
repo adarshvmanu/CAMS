@@ -76,7 +76,7 @@ capture = cv.VideoCapture(0)
 
 
 min_frame = 6
-min_tolerance = 0.21
+min_tolerance = 0.22
 frame_count=[0]*MAX_NUM_FACES
 drowsiness_detected=[False]*MAX_NUM_FACES
 
@@ -110,7 +110,7 @@ while True:
             else:
                 drowsiness_detected[idx]=False
     timestamp = time.strftime("%H:%M:%S")
-    print(f"{timestamp}")
+    #Sprint(f"{timestamp}")
     drowsy_faces = [idx+1 for idx, detected in enumerate(drowsiness_detected) if detected]
     if drowsy_faces:
         print("Drowsiness detected in face(s):", ", ".join(map(str, drowsy_faces)))
