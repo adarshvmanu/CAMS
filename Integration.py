@@ -36,8 +36,15 @@ def get_aspect_ratio(image, outputs, top_bottom, left_right):
         left = face_landmarks.landmark[left_right[0]]
         right = face_landmarks.landmark[left_right[1]]
         left_right_dis = euclidean_distance(image, left, right)
-        
+
         aspect_ratio = left_right_dis / top_bottom_dis
+
+        if len(top_bottom) == 4:
+            top = face_landmarks.landmark[top_bottom[2]]
+            bottom = face_landmarks.landmark[top_bottom[3]]
+            top_bottom_dis_2 = euclidean_distance(image, top, bottom)
+            aspect_ratio = (top_bottom_dis+top_bottom_dis_2)/(2*left_right_dis)
+
         aspect_ratios.append(aspect_ratio)
     return aspect_ratios
 
@@ -113,10 +120,10 @@ COLOR_RED = (0, 0, 255)
 COLOR_BLUE = (255, 0, 0)
 COLOR_GREEN = (0, 255, 0)
 
-LEFT_EYE_TOP_BOTTOM = [386, 374]
+LEFT_EYE_TOP_BOTTOM = [386, 374, 385, 380]
 LEFT_EYE_LEFT_RIGHT = [263, 362]
 
-RIGHT_EYE_TOP_BOTTOM = [159, 145]
+RIGHT_EYE_TOP_BOTTOM = [160, 144, 158, 153]
 RIGHT_EYE_LEFT_RIGHT = [133, 33]
 
 UPPER_LOWER_LIPS = [13, 14]
@@ -132,7 +139,7 @@ face_model = mp_face_mesh.FaceMesh(
 capture = cv.VideoCapture(0)
 
 min_frame = 6
-min_tolerance = 4.7
+min_tolerance = 0.22
 frame_count=[0]*MAX_NUM_FACES
 sleep_detected=[False]*MAX_NUM_FACES
 yawn_detected=[False]*MAX_NUM_FACES
@@ -223,7 +230,7 @@ while True:
 
         for idx, (ratio_left, ratio_right,ratio_lips) in enumerate(zip(aspect_ratios_left, aspect_ratios_right,aspect_ratios_lips)):
             ratio=(ratio_left + ratio_right) / 2   
-            if ratio > min_tolerance:
+            if ratio < min_tolerance:
                 frame_count[idx] +=1
             else:
                 frame_count[idx] = 0
