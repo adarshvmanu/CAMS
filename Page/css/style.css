@@ -2,11 +2,13 @@ body {
     font-family: "Poppins", sans-serif;
     margin-left: 140px;
     margin-right: 140px;
-    background-color: #f4f7ff;
+    background-color: #131314;
 }
 
 .card {
+    color: white;
     border: none;
+    background-color: #1e1f20;
     margin-top: 20px;   
     height: 250px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -34,10 +36,11 @@ nav {
     font-family: poppins;
     font-size: 2rem;
     font-weight: 600;
+    color: white;
 }
 
 a {
-    color: black;
+    color: white;
     text-decoration: none;
     text-decoration-color: white;
 }
