@@ -84,9 +84,10 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
  
 def pack_json(attention_score, sleep, yawn, head):
     current_time = time.localtime()
-    timestamp = time.strftime("%H-%M", current_time)
+    timestamp = time.strftime("%H-%M-%S", current_time)
     
     data = {
+        "timestamp" : timestamp,
         "attention_scores": attention_score,
         "sleep_detected": sleep,
         "yawn_detected": yawn,
@@ -94,7 +95,7 @@ def pack_json(attention_score, sleep, yawn, head):
         "overall_score": round(mean(overall_score),2)
     }
     
-    json_data = json.dumps({timestamp: data})  # Enclosing data within timestamp key
+    json_data = json.dumps({"chart":data})  # Enclosing data within timestamp key
     
     try:
         with open('Page/data.json', 'w') as file:  # Open file in write mode ('w')
