@@ -6,7 +6,7 @@ import time
 def draw_landmarks(image, outputs, land_mark, color):
     height, width = image.shape[:2]
              
-    for idx, face_landmarks in enumerate(outputs.multi_face_landmarks):
+    for face_landmarks in outputs.multi_face_landmarks:
         for face in land_mark:
             point = face_landmarks.landmark[face]
             point_scale = ((int)(point.x * width), (int)(point.y*height))
@@ -81,10 +81,10 @@ while True:
     results = face_model.process(image_rgb)
 
     if results.multi_face_landmarks:
+        
         draw_landmarks(image, results, MOUTH_TOP_BOTTOM, COLOR_RED)
         draw_landmarks(image, results, MOUTH_LEFT_RIGHT, COLOR_RED)
         aspect_ratios = get_aspect_ratio(image, results, MOUTH_TOP_BOTTOM, MOUTH_LEFT_RIGHT)
-
 
         for idx, ratio in enumerate(aspect_ratios): 
             if ratio < min_tolerance:
@@ -101,7 +101,6 @@ while True:
     cv.imshow('Face Mesh', image)
     if cv.waitKey(5) & 0xFF == 27:
         break
-
 
 capture.release()
 cv.destroyAllWindows()
