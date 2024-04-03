@@ -74,21 +74,26 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
     yawn=((yawn_count)/size)*100
     head=((facing_count)/size)*100
     pack_json(attention_score,sleep,yawn,head)
-    
-def pack_json(attention_score,sleep,yawn,head):
+ 
+def pack_json(attention_score, sleep, yawn, head):
     current_time = time.localtime()
     timestamp = time.strftime("%H-%M", current_time)
+    
     data = {
-        "time": timestamp,
         "attention_scores": attention_score,
         "sleep_detected": sleep,
         "yawn_detected": yawn,
         "facing_classroom": head,
-        "overall_score" : mean(overall_score)
+        "overall_score": round(mean(overall_score),2)
     }
-    json_data = json.dumps(data)
-    with open('data.json', 'w') as file:
-        json.dump({"chart": json_data}, file)
+    
+    json_data = json.dumps({timestamp: data})  # Enclosing data within timestamp key
+    
+    try:
+        with open('Page/data.json', 'w') as file:  # Open file in write mode ('w')
+            file.write(json_data)  # Write JSON data to the file
+    except IOError as e:
+        print("Error writing to data.json:", e)
     
 face_mesh = mp.solutions.face_mesh
 draw_utils = mp.solutions.drawing_utils
