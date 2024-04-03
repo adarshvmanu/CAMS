@@ -110,7 +110,7 @@ while True:
             else:
                 drowsiness_detected[idx]=False
     timestamp = time.strftime("%H:%M:%S")
-    #Sprint(f"{timestamp}")
+    print(f"{timestamp}")
     drowsy_faces = [idx+1 for idx, detected in enumerate(drowsiness_detected) if detected]
     if drowsy_faces:
         print("Drowsiness detected in face(s):", ", ".join(map(str, drowsy_faces)))
