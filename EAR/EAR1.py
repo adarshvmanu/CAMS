@@ -76,7 +76,7 @@ capture = cv.VideoCapture(0)
 
 
 min_frame = 6
-min_tolerance = 0.21
+min_tolerance = 0.22
 frame_count=[0]*MAX_NUM_FACES
 drowsiness_detected=[False]*MAX_NUM_FACES
 
