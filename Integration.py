@@ -80,9 +80,9 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
     sleep=((sleep_count)/size)*100
     yawn=((yawn_count)/size)*100
     head=((facing_count)/size)*100
-    pack_json(attention_score,sleep,yawn,head)
+    pack_json(attention_score,sleep,yawn,head,size)
  
-def pack_json(attention_score, sleep, yawn, head):
+def pack_json(attention_score, sleep, yawn, head,size):
     current_time = time.localtime()
     timestamp = time.strftime("%H-%M-%S", current_time)
     
@@ -92,7 +92,8 @@ def pack_json(attention_score, sleep, yawn, head):
         "sleep_detected": sleep,
         "yawn_detected": yawn,
         "facing_classroom": head,
-        "overall_score": round(mean(overall_score),2)
+        "overall_score": round(mean(overall_score),2),
+        "count": size
     }
     
     json_data = json.dumps({"chart":data})  # Enclosing data within timestamp key
