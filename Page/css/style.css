@@ -10,9 +10,27 @@ body {
     border: none;
     background-color: #1e1f20;
     margin-top: 20px;   
-    height: 250px;
+    height: 350px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     border-radius: 10px;
+}
+
+.card-body {
+    padding: 5px;
+}
+
+.overall-attention-container {
+    text-align: center;
+}
+.overall-attention {
+    font-size: 5rem;
+    font-weight: 700;
+    margin-bottom: 5px; 
+}
+
+.main-svg{
+    width: 100%;
+    height: 100%;
 }
 
 nav,

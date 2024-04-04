@@ -25,7 +25,7 @@ function readDataFromFile() {
     }
   }
 
-// WebSocket connection handler
+
 wss.on('connection', (ws) => {
   if (latestData) {
     ws.send(JSON.stringify(latestData));
