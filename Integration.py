@@ -4,7 +4,7 @@ from scipy.spatial import distance as dis
 import time
 import numpy as np
 import json
-from statistics import mean
+from statistics import mean,mode
 
 overall_score=[]
 
@@ -92,15 +92,15 @@ def pack_json(attention_score, sleep, yawn, head,size):
         "sleep_detected": sleep,
         "yawn_detected": yawn,
         "facing_classroom": head,
-        "overall_score": round(mean(overall_score),2),
+        "overall_score": round(mode(overall_score),2),
         "count": size
     }
     
-    json_data = json.dumps({"chart":data})  # Enclosing data within timestamp key
+    json_data = json.dumps({"chart":data})
     
     try:
-        with open('Page/data.json', 'w') as file:  # Open file in write mode ('w')
-            file.write(json_data)  # Write JSON data to the file
+        with open('Page/data.json', 'w') as file:  
+            file.write(json_data)  
     except IOError as e:
         print("Error writing to data.json:", e)
     
