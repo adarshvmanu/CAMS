@@ -140,7 +140,7 @@ face_model = mp_face_mesh.FaceMesh(
 
 capture = cv.VideoCapture(0)
 
-min_frame = 6
+min_frame = 22
 min_tolerance = 0.22
 frame_count=[0]*MAX_NUM_FACES
 sleep_detected=[False]*MAX_NUM_FACES
@@ -230,7 +230,7 @@ while True:
         aspect_ratios_lips = get_aspect_ratio(image, results, UPPER_LOWER_LIPS, LEFT_RIGHT_LIPS )
 
 
-        for idx, (ratio_left, ratio_right,ratio_lips) in enumerate(zip(aspect_ratios_left, aspect_ratios_right,aspect_ratios_lips)):
+        for idx, (ratio_left, ratio_right, ratio_lips) in enumerate(zip(aspect_ratios_left, aspect_ratios_right,aspect_ratios_lips)):
             ratio=(ratio_left + ratio_right) / 2   
             if ratio < min_tolerance:
                 frame_count[idx] +=1
