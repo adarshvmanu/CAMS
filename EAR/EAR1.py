@@ -106,7 +106,6 @@ while True:
                 frame_count[idx] = 0       
             if frame_count[idx] > min_frame:
                 drowsiness_detected[idx]=True
-                #print(f"Drowsiness Detected in Face {idx+1}")
             else:
                 drowsiness_detected[idx]=False
     timestamp = time.strftime("%H:%M:%S")

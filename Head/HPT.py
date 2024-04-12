@@ -89,7 +89,7 @@ while True:
 
             # Display the nose direction
             nose_3d_projection, jacobian = cv.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
-
+            cv.putText(image, text[0], (10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             p1 = (int(nose_2d[0]), int(nose_2d[1]))
             p2 = (int(nose_2d[0] + y * 10) , int(nose_2d[1] - x * 10))
             

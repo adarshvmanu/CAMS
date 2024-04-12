@@ -54,7 +54,6 @@ var attentionlayout = {
   autosize: true,
   frameMargin: 0,
   font: {
-    family: 'Poppins , sans-serif',
     color: '#ffffff',
     size: 10
   },
@@ -68,7 +67,6 @@ var drowsylayout = {
   autosize: true,
   frameMargin: 0,
   font: {
-    family: 'Poppins , sans-serif',
     color: '#ffffff',
     size: 10
   },
@@ -82,7 +80,6 @@ var yawnlayout = {
   autosize: true,
   frameMargin: 0,
   font: {
-    family: 'Poppins , sans-serif',
     color: '#ffffff',
     size: 10
   },
@@ -96,7 +93,6 @@ var facinglayout = {
   autosize: true,
   frameMargin: 0,
   font: {
-    family: 'Poppins , sans-serif',
     color: '#ffffff',
     size: 10
   },

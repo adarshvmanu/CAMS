@@ -89,6 +89,7 @@ while True:
         for idx, ratio in enumerate(aspect_ratios): 
             if ratio < min_tolerance:
                 yawn_detect[idx]= True
+                cv.putText(image, "Yawn Detected", (10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             else:
                 yawn_detect[idx]= False
 
