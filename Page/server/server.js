@@ -13,11 +13,7 @@ let latestData = null;
 function readDataFromFile() {
     try {
       const originalFilePath = '../data.json';
-      const copiedFilePath = '../read.json';
-  
-      fs.copyFileSync(originalFilePath, copiedFilePath);
-      const data = fs.readFileSync(copiedFilePath, 'utf8');
-  
+      const data = fs.readFileSync(originalFilePath, 'utf8');
       return JSON.parse(data);
     } catch (error) {
       console.error('Error reading data from file:', error);
@@ -42,7 +38,7 @@ setInterval(() => {
       }
     });
   }
-}, 10000); 
+}, 3000); 
 
 server.listen(3000, () => {
   console.log('Server started on port 3000');

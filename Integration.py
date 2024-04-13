@@ -4,7 +4,7 @@ from scipy.spatial import distance as dis
 import time
 import numpy as np
 import json
-from statistics import mean,mode
+from statistics import mean
 
 overall_score=[]
 
@@ -92,7 +92,7 @@ def pack_json(attention_score, sleep, yawn, head,size):
         "sleep_detected": sleep,
         "yawn_detected": yawn,
         "facing_classroom": head,
-        "overall_score": round(mode(overall_score),2),
+        "overall_score": round(mean(overall_score),2),
         "count": size
     }
     
