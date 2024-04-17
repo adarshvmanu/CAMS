@@ -2,7 +2,8 @@ body {
   font-family: "Poppins", sans-serif;
   margin-left: 140px;
   margin-right: 140px;
-  background-color: #ffffff;
+  background-color: #131314;
+  color: aliceblue;
 }
   .name-card {
     display: flex;
@@ -23,7 +24,7 @@ body {
   }
   
   .member img {
-    width: 100px;
+    width: 60px;
     border-radius: 50%;
     margin-bottom: 10px;
   }
@@ -62,7 +63,11 @@ body {
   }
   
   a {
-      color: black;
+      color:aliceblue;
       text-decoration: none;
       text-decoration-color: white;
+  }
+
+  h2,p {
+    color:#131314;
   }

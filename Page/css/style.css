@@ -3,6 +3,7 @@ body {
     margin-left: 140px;
     margin-right: 140px;
     background-color: #131314;
+    color: aliceblue;
 }
 
 .card {
@@ -62,3 +63,4 @@ a {
     text-decoration: none;
     text-decoration-color: white;
 }
+
