@@ -56,6 +56,7 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
     facing_count=0
     sleep_count=0
     yawn_count=0
+    attention_count=0
 
     for i in range(size):
         sleep_score = 0 if sleep_detected[i] else 100
@@ -73,6 +74,8 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
             facing_weight = 0.1
         
         total_score = (sleep_score * sleep_weight) + (yawn_score * yawn_weight) + (facing_score * facing_weight)
+        if total_score >= 80 :
+            attention_count+=1
         attention_scores.append(total_score)
         
     attention_score=mean(attention_scores) 
@@ -80,15 +83,16 @@ def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,si
     sleep=((sleep_count)/size)*100
     yawn=((yawn_count)/size)*100
     head=((facing_count)/size)*100
-    pack_json(attention_score,sleep,yawn,head,size)
+    pack_json(attention_count,attention_score,sleep,yawn,head,size)
  
-def pack_json(attention_score, sleep, yawn, head,size):
+def pack_json(attention_count,attention_score, sleep, yawn, head,size):
     current_time = time.localtime()
     timestamp = time.strftime("%H-%M-%S", current_time)
     
     data = {
         "timestamp" : timestamp,
         "attention_scores": attention_score,
+        "attention_count": attention_count,
         "sleep_detected": sleep,
         "yawn_detected": yawn,
         "facing_classroom": head,

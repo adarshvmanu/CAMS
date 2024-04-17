@@ -136,8 +136,11 @@ socket.addEventListener('message', function (event) {
     console.log("Updated Charts")
     const overallAttentionElement = document.querySelector('.overall-attention');
     const studentCountElement = document.querySelector('.student-count');
+    const studentAttentionElement = document.querySelector('.attention-count');
     const newCount = dataChart.count;
+    const attentionCount = dataChart.attention_count
     studentCountElement.textContent='Average Attention From '+newCount+' Students';
+    studentAttentionElement.textContent=attentionCount+'/'+newCount+' Students Paying Attention';
     const newPercentage = dataChart.overall_score;
     overallAttentionElement.textContent = newPercentage + '%';
   } catch (error) {
