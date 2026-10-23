@@ -147,7 +147,7 @@ face_model = mp_face_mesh.FaceMesh(
     min_detection_confidence=DETECTION_CONFIDENCE,
     min_tracking_confidence=TRACKING_CONFIDENCE)
 
-video_source = 0
+video_source = None
 display_window = True
 
 for arg in sys.argv[1:]:
@@ -158,29 +158,66 @@ for arg in sys.argv[1:]:
     elif not arg.startswith('--'):
         video_source = arg
 
-is_camera = isinstance(video_source, int)
+# No source given: use the first camera that returns a real picture.
+if video_source is None:
+    candidate_sources = [0, 1, 2, 3]
+else:
+    candidate_sources = [video_source]
 
-def open_capture(source):
+BRIGHTNESS_MIN = 8  # mean pixel value (0-255) below this counts as a black frame
+
+def backends_for(source):
     # On Windows the default MSMF backend often opens a webcam but never
-    # returns frames, so try DirectShow first and check that frames arrive.
+    # returns frames, so try DirectShow first.
     if sys.platform == 'win32' and isinstance(source, int):
-        backends = [cv.CAP_DSHOW, cv.CAP_MSMF, cv.CAP_ANY]
-    else:
-        backends = [cv.CAP_ANY]
-    for backend in backends:
-        cap = cv.VideoCapture(source, backend)
-        if cap.isOpened():
-            for _ in range(30):
-                ok, _frame = cap.read()
-                if ok:
-                    return cap
-                time.sleep(0.1)
+        return [(cv.CAP_DSHOW, 'DirectShow'), (cv.CAP_MSMF, 'MSMF')]
+    return [(cv.CAP_ANY, 'default')]
+
+def probe(source, backend):
+    # Returns (capture, is_bright). capture is None if no frame ever arrived.
+    cap = cv.VideoCapture(source, backend)
+    if not cap.isOpened():
         cap.release()
+        return None, False
+    got_frame = False
+    for _ in range(40):  # up to ~4 s for auto-exposure to settle
+        ok, frame = cap.read()
+        if ok:
+            got_frame = True
+            if not isinstance(source, int) or frame.mean() > BRIGHTNESS_MIN:
+                return cap, True
+        time.sleep(0.1)
+    if got_frame:
+        return cap, False
+    cap.release()
+    return None, False
+
+def open_capture(sources):
+    dark = None
+    for source in sources:
+        for backend, name in backends_for(source):
+            cap, bright = probe(source, backend)
+            if cap is None:
+                continue
+            if bright:
+                print(f"Using video source '{source}' ({name}).")
+                return cap
+            print(f"Video source '{source}' ({name}) is returning black frames.")
+            cap.release()
+            if dark is None:
+                dark = (source, backend, name)
+    if dark is not None:
+        source, backend, name = dark
+        print(f"No camera gave a picture; falling back to '{source}' ({name}).")
+        print("The feed may stay black: another app may be using the camera, or the")
+        print("camera has a privacy shutter/cover. Try 'start.bat 1' for another camera.")
+        return cv.VideoCapture(source, backend)
     return None
 
-capture = open_capture(video_source)
+capture = open_capture(candidate_sources)
+is_camera = video_source is None or isinstance(video_source, int)
 if capture is None:
-    print(f"Error: Unable to open video source '{video_source}'.")
+    print(f"Error: Unable to open video source '{video_source if video_source is not None else 'camera'}'.")
     print("If using webcam, check camera permissions in your OS privacy settings (Settings > Privacy > Camera on Windows).")
     print("You can also run with a video file: python Integration.py /path/to/video.mp4")
     sys.exit(1)
