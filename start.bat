@@ -51,14 +51,22 @@ set "PATH=%NODE_DIR%;%PATH%"
 :node_ready
 
 rem ---- Virtual environment ------------------------------------------
-if exist "%VENV_PY%" goto :have_venv
+rem mediapipe 0.10.14 only ships wheels for Python 3.10 - 3.12
+set "PYCHECK=import sys; sys.exit(0 if sys.version_info[:2] in [(3,10),(3,11),(3,12)] else 1)"
 
+if not exist "%VENV_PY%" goto :create_venv
+"%VENV_PY%" -c "%PYCHECK%" >nul 2>&1
+if not errorlevel 1 goto :have_venv
+echo [1/4] Existing .venv uses an unsupported Python version - recreating it ...
+rmdir /s /q "%VENV%"
+
+:create_venv
 echo [1/4] Creating virtual environment in .venv ...
 set "PY="
-py -3.11 -c "import sys" >nul 2>&1 && set "PY=py -3.11"
-if not defined PY py -3.12 -c "import sys" >nul 2>&1 && set "PY=py -3.12"
-if not defined PY py -3.10 -c "import sys" >nul 2>&1 && set "PY=py -3.10"
-if not defined PY python -c "import sys" >nul 2>&1 && set "PY=python"
+py -3.11 -c "%PYCHECK%" >nul 2>&1 && set "PY=py -3.11"
+if not defined PY py -3.12 -c "%PYCHECK%" >nul 2>&1 && set "PY=py -3.12"
+if not defined PY py -3.10 -c "%PYCHECK%" >nul 2>&1 && set "PY=py -3.10"
+if not defined PY python -c "%PYCHECK%" >nul 2>&1 && set "PY=python"
 if not defined PY call :install_python_runtime
 if not defined PY goto :no_python
 
@@ -191,7 +199,7 @@ if exist "%PY_EXE%" (
 )
 
 echo.
-echo Python was not found on this computer.
+echo No compatible Python ^(3.10 - 3.12^) was found on this computer.
 choice /c YN /m "Download and install Python %PY_VER% for your user account now"
 if errorlevel 2 exit /b 1
 
@@ -230,8 +238,12 @@ exit /b 1
 
 :pip_failed
 echo.
-echo ERROR: Installing Python packages failed. Check your internet connection
-echo        and that you are using Python 3.10 - 3.12 ^(mediapipe requirement^).
+echo ERROR: Installing Python packages failed. See the pip output above.
+echo        Python used by .venv:
+"%VENV_PY%" --version
+echo        mediapipe needs Python 3.10 - 3.12. If the version above is
+echo        different, delete the .venv folder and run this again.
+echo        Otherwise check your internet connection.
 pause
 exit /b 1
 
