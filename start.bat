@@ -10,6 +10,7 @@ rem  Double-click this file. On every run it will:
 rem    1. create .venv if missing (offers to install Python 3.11 if none found)
 rem    2. install Python packages when requirements.txt changed
 rem    3. install Node packages if Page\server\node_modules is missing
+rem       (offers to download a portable Node.js into .node if none found)
 rem    4. start the web server and open http://localhost:3000
 rem    5. start the camera tracking (press Esc in its window to stop)
 rem
@@ -30,10 +31,24 @@ echo  Classroom Attention Monitoring System
 echo ==================================================
 
 rem ---- Node.js ------------------------------------------------------
+set "NODE_VER=24.22.1"
+set "NODE_SHA256=d2046d28c2c3dcd211ac5145c0bf30e2047ef9dfb306693c8c6e2eccd8b95fa5"
+set "ROOT=%~dp0"
+set "NODE_DIR=%ROOT%.node\node-v%NODE_VER%-win-x64"
+
 where node >nul 2>&1
-if errorlevel 1 goto :no_node
+if errorlevel 1 goto :node_missing
 where npm >nul 2>&1
-if errorlevel 1 goto :no_node
+if errorlevel 1 goto :node_missing
+goto :node_ready
+
+:node_missing
+rem Portable copy installed by an earlier run?
+if not exist "%NODE_DIR%\node.exe" call :install_node_runtime
+if not exist "%NODE_DIR%\node.exe" goto :no_node
+set "PATH=%NODE_DIR%;%PATH%"
+
+:node_ready
 
 rem ---- Virtual environment ------------------------------------------
 if exist "%VENV_PY%" goto :have_venv
@@ -117,8 +132,8 @@ exit /b %APP_RC%
 rem ---- Error handlers ------------------------------------------------
 :no_node
 echo.
-echo ERROR: Node.js was not found. Install the LTS version from
-echo        https://nodejs.org  ^(tick "Add to PATH"^), then run this again.
+echo ERROR: Node.js could not be set up automatically. Install the LTS version
+echo        from https://nodejs.org  ^(tick "Add to PATH"^), then run this again.
 pause
 exit /b 1
 
@@ -129,6 +144,37 @@ echo        Install Python 3.11 from https://www.python.org/downloads/
 echo        ^(tick "Add python.exe to PATH"^), then run this again.
 pause
 exit /b 1
+
+rem ---- Subroutine: install portable Node.js into .node ----------------
+rem Uses the official zip (no admin rights, no PATH changes). On success
+rem %NODE_DIR%\node.exe exists; otherwise it is left missing.
+:install_node_runtime
+set "NODE_ZIP=%TEMP%\node-v%NODE_VER%-win-x64.zip"
+set "NODE_URL=https://nodejs.org/dist/v%NODE_VER%/node-v%NODE_VER%-win-x64.zip"
+
+echo.
+echo Node.js was not found on this computer.
+choice /c YN /m "Download Node.js %NODE_VER% into the project's .node folder now"
+if errorlevel 2 exit /b 1
+
+echo Downloading %NODE_URL% ...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri '%NODE_URL%' -OutFile '%NODE_ZIP%'"
+if errorlevel 1 (
+    echo Download failed.
+    exit /b 1
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if ((Get-FileHash -Algorithm SHA256 '%NODE_ZIP%').Hash -ne '%NODE_SHA256%') { exit 1 }"
+if errorlevel 1 (
+    echo The downloaded file failed its SHA-256 check - aborting.
+    del /q "%NODE_ZIP%" >nul 2>&1
+    exit /b 1
+)
+
+echo Extracting Node.js ...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Force -LiteralPath '%NODE_ZIP%' -DestinationPath '%ROOT%.node'"
+del /q "%NODE_ZIP%" >nul 2>&1
+exit /b 0
 
 rem ---- Subroutine: install Python 3.11 for the current user -----------
 rem Sets PY on success, leaves it undefined if declined or failed.
