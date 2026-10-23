@@ -158,8 +158,28 @@ for arg in sys.argv[1:]:
     elif not arg.startswith('--'):
         video_source = arg
 
-capture = cv.VideoCapture(video_source)
-if not capture.isOpened():
+is_camera = isinstance(video_source, int)
+
+def open_capture(source):
+    # On Windows the default MSMF backend often opens a webcam but never
+    # returns frames, so try DirectShow first and check that frames arrive.
+    if sys.platform == 'win32' and isinstance(source, int):
+        backends = [cv.CAP_DSHOW, cv.CAP_MSMF, cv.CAP_ANY]
+    else:
+        backends = [cv.CAP_ANY]
+    for backend in backends:
+        cap = cv.VideoCapture(source, backend)
+        if cap.isOpened():
+            for _ in range(30):
+                ok, _frame = cap.read()
+                if ok:
+                    return cap
+                time.sleep(0.1)
+        cap.release()
+    return None
+
+capture = open_capture(video_source)
+if capture is None:
     print(f"Error: Unable to open video source '{video_source}'.")
     print("If using webcam, check camera permissions in your OS privacy settings (Settings > Privacy > Camera on Windows).")
     print("You can also run with a video file: python Integration.py /path/to/video.mp4")
@@ -172,12 +192,15 @@ sleep_detected=[False]*MAX_NUM_FACES
 yawn_detected=[False]*MAX_NUM_FACES
 facing_classroom=[False]*MAX_NUM_FACES
 overall_score=[]
+exit_code = 0
 
 
 while True:
     success, image = capture.read()
     if not success:
         print("End of video stream or cannot fetch frame.")
+        if is_camera:
+            exit_code = 1
         break
     
     image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
@@ -295,3 +318,4 @@ while True:
 capture.release()
 if display_window:
     cv.destroyAllWindows()
+sys.exit(exit_code)

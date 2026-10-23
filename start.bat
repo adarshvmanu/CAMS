@@ -87,6 +87,9 @@ if not errorlevel 1 (
 )
 echo [2/4] Installing Python packages ^(first run can take a few minutes^) ...
 "%VENV_PY%" -m pip install --upgrade pip
+rem Remove any OpenCV builds first: they all share one cv2 folder and break
+rem each other when more than one is installed.
+"%VENV_PY%" -m pip uninstall -y opencv-python opencv-python-headless opencv-contrib-python opencv-contrib-python-headless >nul 2>&1
 "%VENV_PY%" -m pip install -r "%~dp0requirements.txt"
 if errorlevel 1 goto :pip_failed
 copy /y "%~dp0requirements.txt" "%STAMP%" >nul
@@ -112,7 +115,7 @@ if not errorlevel 1 (
     goto :open_browser
 )
 echo [4/4] Starting web server on port %PORT% ...
-start "%SERVER_TITLE%" /min cmd /c "cd /d "%~dp0Page\server" && node server.js"
+start "%SERVER_TITLE%" /min cmd /k "cd /d "%~dp0Page\server" && node server.js"
 
 :open_browser
 
@@ -127,14 +130,16 @@ echo.
 "%VENV_PY%" "%~dp0Integration.py" %*
 set "APP_RC=%errorlevel%"
 
+if not "%APP_RC%"=="0" (
+    echo.
+    echo Camera tracking exited with error code %APP_RC% - see the messages above.
+    echo The web server is still running. Press any key to stop it and close.
+    pause >nul
+)
+
 echo.
 echo Stopping web server ...
 taskkill /f /t /fi "WINDOWTITLE eq %SERVER_TITLE%*" >nul 2>&1
-
-if not "%APP_RC%"=="0" (
-    echo Camera tracking exited with error code %APP_RC%.
-    pause
-)
 exit /b %APP_RC%
 
 rem ---- Error handlers ------------------------------------------------

@@ -1,4 +1,6 @@
 mediapipe==0.10.14
-opencv-python>=4.8.0
+# mediapipe depends on opencv-contrib-python; installing opencv-python as well
+# makes the two overwrite each other's cv2 package, so only list the contrib one.
+opencv-contrib-python>=4.8.0,<4.12
 scipy>=1.11.0
-numpy>=1.24.0
+numpy>=1.24.0,<2
