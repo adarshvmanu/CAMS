@@ -8,19 +8,33 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+const pageDir = path.join(__dirname, '..');
+const dataFilePath = path.join(pageDir, 'data.json');
+
+// Serve static frontend files (HTML, CSS, JS)
+app.use(express.static(pageDir));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(pageDir, 'Index.html'));
+});
+
 let latestData = null;
 
 function readDataFromFile() {
     try {
-      const originalFilePath = '../data.json';
-      const data = fs.readFileSync(originalFilePath, 'utf8');
-      return JSON.parse(data);
+      if (!fs.existsSync(dataFilePath)) {
+        return null;
+      }
+      const rawData = fs.readFileSync(dataFilePath, 'utf8');
+      if (!rawData || !rawData.trim()) {
+        return null;
+      }
+      return JSON.parse(rawData);
     } catch (error) {
       console.error('Error reading data from file:', error);
       return null;
     }
   }
-
 
 wss.on('connection', (ws) => {
   if (latestData) {
@@ -40,6 +54,7 @@ setInterval(() => {
   }
 }, 3000); 
 
-server.listen(3000, () => {
-  console.log('Server started on port 3000');
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server started at http://localhost:${PORT}`);
 });

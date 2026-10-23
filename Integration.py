@@ -4,7 +4,12 @@ from scipy.spatial import distance as dis
 import time
 import numpy as np
 import json
+import os
+import sys
 from statistics import mean
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE_PATH = os.path.join(SCRIPT_DIR, 'Page', 'data.json')
 
 overall_score=[]
 
@@ -103,7 +108,7 @@ def pack_json(attention_count,attention_score, sleep, yawn, head,size):
     json_data = json.dumps({"chart":data})
     
     try:
-        with open('Page/data.json', 'w') as file:  
+        with open(DATA_FILE_PATH, 'w') as file:  
             file.write(json_data)  
     except IOError as e:
         print("Error writing to data.json:", e)
@@ -142,7 +147,23 @@ face_model = mp_face_mesh.FaceMesh(
     min_detection_confidence=DETECTION_CONFIDENCE,
     min_tracking_confidence=TRACKING_CONFIDENCE)
 
-capture = cv.VideoCapture(0)
+video_source = 0
+display_window = True
+
+for arg in sys.argv[1:]:
+    if arg == '--no-display':
+        display_window = False
+    elif arg.isdigit():
+        video_source = int(arg)
+    elif not arg.startswith('--'):
+        video_source = arg
+
+capture = cv.VideoCapture(video_source)
+if not capture.isOpened():
+    print(f"Error: Unable to open video source '{video_source}'.")
+    print("If using webcam, check camera permissions in your OS privacy settings (Settings > Privacy > Camera on Windows).")
+    print("You can also run with a video file: python Integration.py /path/to/video.mp4")
+    sys.exit(1)
 
 min_frame = 22
 min_tolerance = 0.22
@@ -156,6 +177,7 @@ overall_score=[]
 while True:
     success, image = capture.read()
     if not success:
+        print("End of video stream or cannot fetch frame.")
         break
     
     image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
@@ -263,9 +285,13 @@ while True:
     face_count=0
 
 
-    cv.imshow('Integrated', image)
-    if cv.waitKey(5) & 0xFF == 27:
-        break
+    if display_window:
+        cv.imshow('Integrated', image)
+        if cv.waitKey(5) & 0xFF == 27:
+            break
+    else:
+        time.sleep(0.01)
     
 capture.release()
-cv.destroyAllWindows()
+if display_window:
+    cv.destroyAllWindows()
