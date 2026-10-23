@@ -231,6 +231,14 @@ facing_classroom=[False]*MAX_NUM_FACES
 overall_score=[]
 exit_code = 0
 
+# Status line every few seconds so a silent console is distinguishable from
+# a stalled one, plus a snapshot of the first frame to inspect.
+SNAPSHOT_PATH = os.path.join(SCRIPT_DIR, 'camera_check.jpg')
+STATUS_INTERVAL = 2.0
+frames_done = 0
+frames_at_report = 0
+last_report = time.time()
+
 
 while True:
     success, image = capture.read()
@@ -239,7 +247,12 @@ while True:
         if is_camera:
             exit_code = 1
         break
-    
+
+    frames_done += 1
+    if frames_done == 1:
+        cv.imwrite(SNAPSHOT_PATH, image)
+        print(f"First frame: {image.shape[1]}x{image.shape[0]}, brightness {image.mean():.0f}/255. Saved to {SNAPSHOT_PATH}")
+
     image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
     results = face_model.process(image_rgb)
     img_h, img_w, img_c = image.shape
@@ -342,6 +355,15 @@ while True:
     if face_count != 0:
         calculate_attention_score(sleep_detected,yawn_detected,facing_classroom,face_count)
         print(f"Sleep: {sleep_detected} Yawn : {yawn_detected} Facing : {facing_classroom}\n")
+
+    now = time.time()
+    if now - last_report >= STATUS_INTERVAL:
+        fps = (frames_done - frames_at_report) / (now - last_report)
+        print(f"[status] frames={frames_done} fps={fps:.1f} brightness={image.mean():.0f} faces={face_count}")
+        frames_at_report = frames_done
+        last_report = now
+
+    cv.putText(image, f"Faces: {face_count}", (10, 25), cv.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_GREEN, 2)
     face_count=0
 
 
