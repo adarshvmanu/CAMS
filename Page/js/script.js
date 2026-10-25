@@ -258,6 +258,14 @@ function updateSessionStatusFooter() {
 
   if (elapsedEl) elapsedEl.textContent = `${hrs}:${mins}:${secs}`;
   if (framesEl) framesEl.textContent = String(engine.frameCount);
+
+  // Sync Lecture Syllabus Active Phase Time & Topic
+  const sylElapsed = document.getElementById('syl-active-elapsed');
+  if (sylElapsed) sylElapsed.textContent = `${mins}:${secs}`;
+  const sylTitle = document.getElementById('syl-active-title');
+  if (sylTitle && sessionConfig.topic) {
+    sylTitle.textContent = `III. ${sessionConfig.topic}`;
+  }
 }
 
 // ============================================================================
@@ -267,6 +275,7 @@ function updateSessionStatusFooter() {
 const MAX_HISTORY_POINTS = 100;
 let sessionLogs = [];
 let prevStudentStates = {};
+let lastStateChangeTimes = {};
 let maxSessionStudents = 0;
 let selectedStudentId = 1;
 let deskExerciseMode = false;
@@ -355,6 +364,142 @@ function draw3DPoseSphere(ctx, yawDeg, pitchDeg, isAlert = false, rollDeg = 0) {
   ctx.beginPath();
   ctx.arc(cx, cy, 2.0, 0, Math.PI * 2);
   ctx.fill();
+}
+
+// High-DPI Video Reticle & Face HUD Overlay
+const lerpedReticle = { x: 0, y: 0, w: 0, h: 0, opacity: 0, initialized: false };
+
+function renderVideoReticleCanvas() {
+  const canvas = document.getElementById('video-reticle-canvas');
+  if (!canvas) return;
+
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+
+  const ctx = configureRetinaCanvas(canvas, rect.width, rect.height);
+  if (!ctx) return;
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  if (!layerState.reticle) return;
+
+  const students = engine.target.students || [];
+  if (students.length === 0) {
+    lerpedReticle.opacity += (0 - lerpedReticle.opacity) * 0.15;
+    return;
+  }
+
+  const primary = students.find(s => s.id === selectedStudentId) || students[0];
+  if (!primary) return;
+
+  const rawBbox = primary.bbox && primary.bbox.length === 4 ? primary.bbox : [0.30, 0.20, 0.40, 0.55];
+  const targetX = rawBbox[0] * rect.width;
+  const targetY = rawBbox[1] * rect.height;
+  const targetW = rawBbox[2] * rect.width;
+  const targetH = rawBbox[3] * rect.height;
+
+  if (!lerpedReticle.initialized) {
+    lerpedReticle.x = targetX;
+    lerpedReticle.y = targetY;
+    lerpedReticle.w = targetW;
+    lerpedReticle.h = targetH;
+    lerpedReticle.opacity = 1.0;
+    lerpedReticle.initialized = true;
+  } else {
+    const alpha = 0.22;
+    lerpedReticle.x += (targetX - lerpedReticle.x) * alpha;
+    lerpedReticle.y += (targetY - lerpedReticle.y) * alpha;
+    lerpedReticle.w += (targetW - lerpedReticle.w) * alpha;
+    lerpedReticle.h += (targetH - lerpedReticle.h) * alpha;
+    lerpedReticle.opacity += (1.0 - lerpedReticle.opacity) * 0.15;
+  }
+
+  const { x, y, w, h } = lerpedReticle;
+  if (w <= 12 || h <= 12) return;
+
+  ctx.save();
+  ctx.globalAlpha = Math.min(1.0, Math.max(0.0, lerpedReticle.opacity));
+
+  const isAlert = primary.mar > 0.60 || primary.ear < 0.20;
+  const isWarn = primary.status !== 'Attentive';
+  const bracketColor = isAlert ? '#FF3B30' : (isWarn ? '#FF9F0A' : 'rgba(255, 255, 255, 0.95)');
+
+  // 1. Sleek 1px rounded boundary box
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, w, h);
+
+  // 2. Corner brackets (22px length, 2.5px thickness)
+  const len = Math.min(22, w * 0.25, h * 0.25);
+  ctx.strokeStyle = bracketColor;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+
+  // Top-Left
+  ctx.beginPath();
+  ctx.moveTo(x, y + len);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + len, y);
+  ctx.stroke();
+
+  // Top-Right
+  ctx.beginPath();
+  ctx.moveTo(x + w - len, y);
+  ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w, y + len);
+  ctx.stroke();
+
+  // Bottom-Left
+  ctx.beginPath();
+  ctx.moveTo(x, y + h - len);
+  ctx.lineTo(x, y + h);
+  ctx.lineTo(x + len, y + h);
+  ctx.stroke();
+
+  // Bottom-Right
+  ctx.beginPath();
+  ctx.moveTo(x + w - len, y + h);
+  ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x + w, y + h - len);
+  ctx.stroke();
+
+  // 3. Floating Frosted Pill Above Face (Apple visionOS / Linear style)
+  let statusTag = primary.status || 'Attentive';
+  if (primary.mar > 0.60) {
+    statusTag = `Yawn Hold ${(engine.gateHoldMs / 1000).toFixed(1)}s`;
+  } else if (primary.ear < 0.20) {
+    statusTag = `Drowsy Hold ${(engine.gateHoldMs / 1000).toFixed(1)}s`;
+  }
+  const scoreVal = Number(primary.score || 82).toFixed(0);
+  const pillText = `0${primary.id} · ${scoreVal}% · ${statusTag}`;
+
+  ctx.font = '600 11px "JetBrains Mono", Menlo, monospace';
+  const tm = ctx.measureText(pillText);
+  const pillW = tm.width + 24;
+  const pillH = 22;
+  const pillX = x + (w - pillW) / 2;
+  const pillY = Math.max(12, y - pillH - 8);
+
+  // Pill Glass Base
+  ctx.fillStyle = 'rgba(24, 24, 27, 0.88)';
+  ctx.beginPath();
+  ctx.roundRect(pillX, pillY, pillW, pillH, 9999);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Indicator Dot inside Pill
+  ctx.fillStyle = bracketColor;
+  ctx.beginPath();
+  ctx.arc(pillX + 10, pillY + pillH / 2, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Text inside Pill
+  ctx.fillStyle = '#FAFAFA';
+  ctx.fillText(pillText, pillX + 18, pillY + 15);
+
+  ctx.restore();
 }
 
 // Inline 5-Second Biometric Waveform Sparkline
@@ -492,12 +637,16 @@ class TwoSpeedTelemetryEngine {
     });
 
     // FPS estimation
-    this.fpsFrameCounter++;
-    const now = performance.now();
-    if (now - this.fpsTimer >= 1000) {
-      this.fpsEstimate = Math.min(30.0, Math.max(10.0, (this.fpsFrameCounter * 1000) / (now - this.fpsTimer)));
-      this.fpsFrameCounter = 0;
-      this.fpsTimer = now;
+    if (chart.fps) {
+      this.fpsEstimate = Number(chart.fps);
+    } else {
+      this.fpsFrameCounter++;
+      const now = performance.now();
+      if (now - this.fpsTimer >= 1000) {
+        this.fpsEstimate = Math.min(30.0, Math.max(10.0, (this.fpsFrameCounter * 1000) / (now - this.fpsTimer)));
+        this.fpsFrameCounter = 0;
+        this.fpsTimer = now;
+      }
     }
   }
 
@@ -730,7 +879,8 @@ function synthesizeLecturePulse({ focusMean, focusDelta, facingPct, primaryStude
   }
 
   // 2. Desk Note-Taking vs. Distraction
-  if (pitch < -12 && mar < 0.45 && ear >= 0.20) {
+  const isLookingDown = (pitch < -14 || pitch > 22);
+  if (isLookingDown && mar < 0.45 && ear >= 0.20) {
     return {
       severity: 'warn',
       headline: isDeskMode
@@ -741,7 +891,7 @@ function synthesizeLecturePulse({ focusMean, focusDelta, facingPct, primaryStude
   }
 
   // 3. Lateral Gaze Drift
-  if (Math.abs(yaw) > 20) {
+  if (Math.abs(yaw) > 22) {
     return {
       severity: 'warn',
       headline: `Lateral gaze drift observed (${yaw > 0 ? '+' : ''}${yaw.toFixed(1)}° yaw) outside primary board cone.`,
@@ -750,9 +900,10 @@ function synthesizeLecturePulse({ focusMean, focusDelta, facingPct, primaryStude
   }
 
   // 4. Default High-Engagement State
+  const alignmentText = facingPct > 35 ? `${facingPct.toFixed(0)}% board gaze alignment` : `stable desk focus`;
   return {
     severity: 'stable',
-    headline: `Cohort engagement steady at ${focusMean.toFixed(1)}% with ${facingPct.toFixed(0)}% board gaze alignment.`,
+    headline: `Cohort engagement steady at ${focusMean.toFixed(1)}% with ${alignmentText}.`,
     detail: `Subject 0${id} maintaining stable posture (Pitch ${pitch >= 0 ? '+' : ''}${pitch.toFixed(1)}°, EAR ${ear.toFixed(2)}) across rolling window.`
   };
 }
@@ -806,6 +957,9 @@ function runAnimationFrameLoop(now) {
     draw3DPoseSphere(ctx, cur.yaw, cur.pitch, isAlert, cur.roll || 0);
   }
 
+  // 2. Draw Video Reticle Overlay on Video Canvas
+  renderVideoReticleCanvas();
+
   // 2. Dynamic Island Ring
   const islandRing = document.getElementById('island-ring-progress');
   if (islandRing) {
@@ -847,7 +1001,13 @@ function runAnimationFrameLoop(now) {
       const circumference = 56.55;
       const rowOffset = circumference * (1 - Math.min(1, animState.gateProgress));
       rowRing.style.strokeDashoffset = rowOffset.toFixed(2);
-      rowRing.style.stroke = (s.mar > 0.60 || s.ear < 0.20) ? 'var(--signal-red)' : 'var(--signal-green)';
+      if (s.mar > 0.60 || s.ear < 0.20) {
+        rowRing.style.stroke = 'var(--signal-red)';
+      } else if (animState.gateProgress > 0.05) {
+        rowRing.style.stroke = 'var(--signal-amber)';
+      } else {
+        rowRing.style.stroke = 'var(--signal-green)';
+      }
     }
   });
 
@@ -1029,7 +1189,9 @@ function renderBiometricLedgerTable(students) {
   }
 
   if (slotsLabel) {
-    slotsLabel.textContent = `${students.length} participant(s) locked · continuous telemetry active`;
+    const activeCount = students.length;
+    const standbyCount = Math.max(0, 30 - activeCount);
+    slotsLabel.textContent = `${activeCount} locked · ${standbyCount} standby slots`;
   }
 
   let rowsHtml = '';
@@ -1143,6 +1305,43 @@ function renderBiometricLedgerTable(students) {
         </td>
       </tr>
     `;
+  });
+
+  // Architectural Standby Slots (Preserving Grid Structure)
+  const standbyConfigs = [
+    { id: '02', name: 'Seat 02', loc: 'Front-Left' },
+    { id: '03', name: 'Seat 03', loc: 'Front-Right' },
+    { id: '04', name: 'Seat 04', loc: 'Mid-Center' }
+  ];
+  const renderedIds = new Set(students.map(s => s.id));
+  standbyConfigs.forEach(slot => {
+    if (!renderedIds.has(parseInt(slot.id, 10))) {
+      rowsHtml += `
+        <tr class="standby-row">
+          <td>
+            <div class="participant-cell">
+              <div class="participant-avatar-badge mono" style="background: var(--bg-recessed-well); color: var(--ink-tertiary); border: 1px dashed var(--hairline-strong);">${slot.id}</div>
+              <div class="participant-info">
+                <span class="participant-name" style="color: var(--ink-secondary); font-size: 13px;">${slot.name}</span>
+                <span class="participant-sub">${slot.loc}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="posture-cell">
+              <span class="dot-indicator" style="background: var(--ink-tertiary);"></span>
+              <div class="posture-text-group">
+                <span class="posture-state-title" style="color: var(--ink-secondary); font-weight: 400;">Awaiting optical lock</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="standby-cell-empty mono">—</span></td>
+          <td><span class="standby-cell-empty mono">—</span></td>
+          <td><span class="standby-cell-empty mono">—</span></td>
+          <td><span class="standby-cell-empty mono">—</span></td>
+        </tr>
+      `;
+    }
   });
 
   tbody.innerHTML = rowsHtml;
@@ -1427,11 +1626,24 @@ function handleTelemetryPayload(payload) {
     }))
   });
 
-  // State Transition Event Logs
+  // State Transition Event Logs with 3.5s anti-jitter debounce & rich details
+  const nowMs = Date.now();
   students.forEach(s => {
     if (prevStudentStates[s.id] && prevStudentStates[s.id] !== s.status) {
-      const nodeColor = s.status === 'Attentive' ? 'green' : (s.status === 'Sleeping' ? 'red' : 'amber');
-      logIncident(`Subject 0${s.id} transitioned to: ${s.status}`, nodeColor, `EAR ${Number(s.ear).toFixed(2)} · MAR ${Number(s.mar).toFixed(2)}`);
+      const lastLogged = lastStateChangeTimes[s.id] || 0;
+      if (nowMs - lastLogged > 3500) {
+        lastStateChangeTimes[s.id] = nowMs;
+        const nodeColor = s.status === 'Attentive' ? 'green' : (s.status === 'Sleeping' ? 'red' : 'amber');
+        let detail = `EAR ${Number(s.ear).toFixed(2)} · MAR ${Number(s.mar).toFixed(2)}`;
+        if (s.status === 'Looking Down') {
+          detail = `Downward pitch (${Number(s.pitch).toFixed(1)}°) · Classified as desk activity`;
+        } else if (s.status === 'Yawning') {
+          detail = `2.0s hysteresis ring at 70% · MAR ${Number(s.mar).toFixed(2)} threshold crossed`;
+        } else if (s.status === 'Attentive') {
+          detail = `Subject returned to primary board cone · Stable engagement`;
+        }
+        logIncident(`Subject 0${s.id} transitioned to: ${s.status}`, nodeColor, detail);
+      }
     }
     prevStudentStates[s.id] = s.status;
   });

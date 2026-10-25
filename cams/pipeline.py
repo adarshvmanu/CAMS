@@ -22,7 +22,7 @@ class CAMSPipeline:
     High-performance, zero-copy vision pipeline for Classroom Attention Monitoring.
     """
 
-    def __init__(self, max_faces=16, pitch_offset=-16.0, yaw_offset=0.0):
+    def __init__(self, max_faces=16, pitch_offset=0.0, yaw_offset=0.0):
         self.max_faces = max_faces
         self.pitch_offset = pitch_offset
         self.yaw_offset = yaw_offset
@@ -90,6 +90,15 @@ class CAMSPipeline:
                 # Standard MAR
                 mar, _, _ = compute_mar(face_landmarks, img_w, img_h, UPPER_LOWER_LIPS, LEFT_RIGHT_LIPS)
 
+                # Normalized Bounding Box for High-DPI Reticle Overlay
+                x_coords = [lm.x for lm in face_landmarks.landmark]
+                y_coords = [lm.y for lm in face_landmarks.landmark]
+                min_x = max(0.0, min(x_coords) - 0.02)
+                max_x = min(1.0, max(x_coords) + 0.02)
+                min_y = max(0.0, min(y_coords) - 0.03)
+                max_y = min(1.0, max(y_coords) + 0.02)
+                bbox = [round(min_x, 4), round(min_y, 4), round(max_x - min_x, 4), round(max_y - min_y, 4)]
+
                 # Calibrated Head Pose
                 pitch, yaw, roll, direction, rot_vec, trans_vec, cam_matrix, dist_matrix = estimate_head_pose(
                     face_landmarks, img_w, img_h,
@@ -99,6 +108,7 @@ class CAMSPipeline:
 
                 detected_faces.append({
                     "centroid": centroid,
+                    "bbox": bbox,
                     "ear": ear_avg,
                     "mar": mar,
                     "pitch": pitch,

@@ -18,6 +18,9 @@ class StudentTrack:
         self.yaw = 0.0
         self.roll = 0.0
         self.direction = "Forward"
+        self.direction_candidate = "Forward"
+        self.direction_candidate_frames = 0
+        self.bbox = [0.0, 0.0, 0.0, 0.0]
 
         # Adaptive eye shape baseline
         self.ear_baseline = 0.28
@@ -45,12 +48,16 @@ class StudentTrack:
         self.sleep_detected = False
         self.yawn_detected = False
         self.facing_classroom = False
+        self.direction = "Forward"
+        self.direction_candidate = "Forward"
+        self.direction_candidate_frames = 0
+        self.bbox = [0.0, 0.0, 0.0, 0.0]
         self.instant_score = 0.0
         self.ema_score = 0.0
         self.is_attentive = False
         self.status = "Empty Slot"
 
-    def update(self, centroid, ear, mar, pitch, yaw, roll, direction):
+    def update(self, centroid, ear, mar, pitch, yaw, roll, direction, bbox=None):
         self.is_active = True
         self.missing_frames = 0
         self.centroid = centroid
@@ -59,7 +66,17 @@ class StudentTrack:
         self.pitch = pitch
         self.yaw = yaw
         self.roll = roll
-        self.direction = direction
+        if bbox is not None:
+            self.bbox = bbox
+
+        # Direction temporal hysteresis (require 6 consecutive frames of consistent pose to flip)
+        if direction == self.direction_candidate:
+            self.direction_candidate_frames += 1
+            if self.direction_candidate_frames >= 6:
+                self.direction = direction
+        else:
+            self.direction_candidate = direction
+            self.direction_candidate_frames = 1
 
         # Adaptive EAR baseline (tracks user's natural open-eye ratio)
         if ear > 0.16:
@@ -142,7 +159,8 @@ class StudentTrack:
             "direction": self.direction,
             "active": self.is_active,
             "centroid": [cx, cy],
-            "position": pos
+            "position": pos,
+            "bbox": self.bbox
         }
 
 
@@ -178,7 +196,7 @@ class MultiStudentTracker:
         if num_detected == 1 and 1 in self.tracks and self.tracks[1].is_active:
             d = detected_faces[0]
             self.tracks[1].update(
-                d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"]
+                d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"], d.get("bbox")
             )
             matched_track_ids.add(1)
             matched_detections.add(0)
@@ -203,7 +221,7 @@ class MultiStudentTracker:
             if best_det_idx is not None:
                 d = detected_faces[best_det_idx]
                 track.update(
-                    d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"]
+                    d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"], d.get("bbox")
                 )
                 matched_track_ids.add(track_id)
                 matched_detections.add(best_det_idx)
@@ -224,7 +242,7 @@ class MultiStudentTracker:
 
             d = detected_faces[det_idx]
             self.tracks[new_id].update(
-                d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"]
+                d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"], d.get("bbox")
             )
             matched_track_ids.add(new_id)
 

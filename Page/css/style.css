@@ -839,6 +839,125 @@ html, body {
   color: var(--hairline-strong);
 }
 
+/* Lecture Syllabus Sync Scrubber */
+.syllabus-sync-wrapper {
+  margin: 6px 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.syllabus-sync-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-tertiary);
+  text-transform: uppercase;
+}
+
+.syllabus-grid {
+  display: grid;
+  grid-template-columns: 35fr 25fr 40fr;
+  gap: 8px;
+}
+
+.syllabus-pill {
+  background: var(--bg-recessed-well);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  padding: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: all 200ms ease;
+}
+
+.syllabus-pill.active-phase {
+  background: #FFFFFF;
+  border: 1.5px solid var(--ink-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.syl-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.syl-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal-amber);
+  animation: pulseBeacon 2s infinite ease-in-out;
+}
+
+.syl-sub {
+  font-size: 10.5px;
+  color: var(--ink-secondary);
+  margin-top: 1px;
+}
+
+/* Master Architectural Footer Strip */
+.studio-footer-strip {
+  padding: 10px 24px;
+  background: #FFFFFF;
+  border-top: 1px solid var(--hairline-strong);
+}
+
+.footer-strip-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-secondary);
+  flex-wrap: wrap;
+}
+
+.footer-tag {
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+
+.footer-stat {
+  color: var(--ink-secondary);
+}
+
+.footer-sep {
+  color: var(--ink-tertiary);
+}
+
+/* Table Standby Rows & SVG Hysteresis Ring */
+.standby-row {
+  opacity: 0.45;
+  transition: opacity 250ms ease;
+}
+.standby-row:hover {
+  opacity: 0.75;
+}
+.standby-cell-empty {
+  color: var(--ink-tertiary);
+}
+
+.ledger-ring-svg {
+  width: 22px;
+  height: 22px;
+  transform: rotate(-90deg);
+  flex-shrink: 0;
+}
+.ledger-ring-bg {
+  stroke: var(--hairline-strong);
+}
+.ledger-ring-fg {
+  stroke: var(--signal-amber);
+  stroke-dasharray: 56.55;
+  stroke-dashoffset: 56.55;
+  transition: stroke-dashoffset 200ms ease, stroke 200ms ease;
+}
+
 /* ----------------------------------------------------
    ROW 3: BOTTOM SPLIT PANE (8 Cols / 4 Cols)
 ---------------------------------------------------- */

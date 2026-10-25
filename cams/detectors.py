@@ -89,13 +89,13 @@ def estimate_head_pose(face_landmarks, img_w, img_h, pitch_offset=0.0, yaw_offse
     cal_pitch = raw_pitch - pitch_offset
     cal_yaw = raw_yaw - yaw_offset
 
-    if cal_yaw < -22.0:
+    if cal_yaw < -26.0:
         direction = "Looking Left"
-    elif cal_yaw > 22.0:
+    elif cal_yaw > 26.0:
         direction = "Looking Right"
-    elif cal_pitch < -25.0:
+    elif cal_pitch < -26.0:
         direction = "Looking Up"
-    elif cal_pitch > 20.0:
+    elif cal_pitch > 26.0:
         direction = "Looking Down"
     else:
         direction = "Forward"

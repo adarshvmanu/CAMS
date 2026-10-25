@@ -362,6 +362,25 @@
               <canvas id="master-chart-canvas"></canvas>
             </div>
 
+            <!-- Lecture Syllabus Sync Scrubber -->
+            <div class="syllabus-sync-wrapper">
+              <span class="syllabus-sync-label">LECTURE SYLLABUS SYNC</span>
+              <div class="syllabus-grid">
+                <div class="syllabus-pill" id="syl-segment-1">
+                  <span class="syl-title">I. Session Setup &amp; Roll Call</span>
+                  <span class="syl-sub mono tabular-nums">00:00 – 00:08 · Baseline Calibrated</span>
+                </div>
+                <div class="syllabus-pill" id="syl-segment-2">
+                  <span class="syl-title">II. Problem Set &amp; Interaction</span>
+                  <span class="syl-sub mono tabular-nums">00:08 – 00:15 · Focus Synchronized</span>
+                </div>
+                <div class="syllabus-pill active-phase" id="syl-segment-3">
+                  <span class="syl-title"><span class="syl-active-dot"></span><span id="syl-active-title">III. Active Lecture Phase</span></span>
+                  <span class="syl-sub mono tabular-nums"><span id="syl-active-elapsed">00:15</span> – Present · Live Telemetry Synced</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Real Telemetry Status Footer (Aligned with Left Pane Layer Controls) -->
             <div class="timeline-footer-bar">
               <span class="timeline-footer-desc">100-pt Sliding Window · 4-Trace Telemetry Stream</span>
@@ -461,6 +480,18 @@
           </div>
         </section>
       </main>
+
+      <!-- MASTER ARCHITECTURAL FOOTER STRIP -->
+      <footer class="studio-footer-strip">
+        <div class="footer-strip-inner mono">
+          <span class="footer-tag">Motion Pipeline</span>
+          <span class="footer-stat">Bounding Frame: 60fps EMA Lerp (alpha=0.22)</span>
+          <span class="footer-sep">·</span>
+          <span class="footer-stat">Numerals: 4Hz Tabular Throttle</span>
+          <span class="footer-sep">·</span>
+          <span class="footer-stat">State Gate: 2.0s SVG Ring Hysteresis</span>
+        </div>
+      </footer>
     </div>
   </div>
 

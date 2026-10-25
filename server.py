@@ -39,7 +39,7 @@ latest_telemetry = {
 }
 
 calibration_settings = {
-    "pitch_offset": -16.0,  # Default offset for MacBook screen tilt
+    "pitch_offset": 0.0,
     "yaw_offset": 0.0,
     "max_faces": 16,
     "auto_scale": True
@@ -47,7 +47,7 @@ calibration_settings = {
 
 ws_clients = set()
 ws_lock = threading.Lock()
-pipeline = CAMSPipeline(max_faces=16, pitch_offset=-16.0, yaw_offset=0.0)
+pipeline = CAMSPipeline(max_faces=16, pitch_offset=0.0, yaw_offset=0.0)
 
 
 def encode_ws_frame(message):
@@ -131,6 +131,7 @@ def vision_pipeline_thread(video_source=0):
             payload = {
                 "chart": {
                     "timestamp": timestamp,
+                    "fps": round(fps, 1),
                     "overall_score": summary["overall_score"],
                     "count": summary["count"],
                     "attention_count": summary["attention_count"],
