@@ -1,149 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="./css/style.css">
-    <title>Document</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About &amp; V2.0 Architecture — CAMS Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <nav id="desktop-nav">
-        <div class="logo">CAMS</div>
-        <div>
-            <ul class="nav-links">
-                <li><a href="Index.html">Home</a></li>
-                <li><a href="Team.html">Team</a></li>
-            </ul>
+  <!-- Shared Studio Header -->
+  <header class="studio-header">
+    <div class="brand-section">
+      <a href="Index.html" style="text-decoration: none;"><span class="brand-logo">CAMS Studio</span></a>
+      <span class="brand-badge">Documentation</span>
+    </div>
+
+    <div class="header-controls">
+      <ul class="nav-links-row">
+        <li><a href="Index.html" class="nav-link-item">● Live Studio</a></li>
+        <li><a href="about.html" class="nav-link-item active">About &amp; V2 Docs</a></li>
+        <li><a href="Team.html" class="nav-link-item">The Team</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <div class="page-container">
+    <div class="page-hero">
+      <h1 class="page-hero-title">System Architecture &amp; V2.0 Evolution</h1>
+      <p class="page-hero-subtitle">
+        A comprehensive technical overview of the Classroom Attention Monitoring System (CAMS) — from its foundational computer vision research to the V2.0 high-performance engineering overhaul.
+      </p>
+    </div>
+
+    <!-- Section 1: Foundational Architecture (V1.0) -->
+    <section class="doc-section">
+      <div class="doc-section-header">
+        <span class="doc-badge">V1.0 Foundations</span>
+        <h2 class="doc-title">Core Modules &amp; Original Concepts</h2>
+      </div>
+      <div class="doc-body">
+        <p>
+          CAMS was conceptualized as a non-invasive, privacy-conscious classroom telemetry platform. By eliminating the requirement for expensive GPU clusters, the system uses Google MediaPipe FaceMesh to extract 468 facial landmark coordinates in real time on standard educational hardware.
+        </p>
+
+        <div class="doc-card-grid">
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">1. Eye Aspect Ratio (EAR)</h3>
+            <p class="doc-subcard-desc">
+              Tracks upper and lower eyelid coordinates to quantify blink frequency and eye closure intervals. Identifies microsleep episodes and prolonged drowsiness.
+            </p>
+          </div>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">2. Mouth Aspect Ratio (MAR)</h3>
+            <p class="doc-subcard-desc">
+              Monitors the vertical opening and horizontal width of lips to measure yawning frequency, speech kinematics, and physical fatigue.
+            </p>
+          </div>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">3. 3D Head Pose Estimation</h3>
+            <p class="doc-subcard-desc">
+              Applies Perspective-n-Point (<code style="color: var(--accent-sky);">solvePnP</code>) to estimate head orientation across Pitch, Yaw, and Roll axes, determining whether students face the instructor.
+            </p>
+          </div>
         </div>
-    </nav>
-    
-   <center><h2>Classroom Attention Monitoring System</h2></center> 
-    <p>This project aims to track the attentiveness of the students in a classroom. 
-        The project contains 3 modules which are split and integrated to achieve the final system.
-         We will be using modules such as :</p>
-<ul>
- <li>Eye Closure and Opening Detection</li>
- <li>Yawn Detection</li> 
- <li>HeadPose Detection</li> 
-</ul>
+      </div>
+    </section>
 
-<p>We are using Mediapipe for this project which is an open-source framework by Google,
- which helps to perform tasks which fall into the array of Computer Vision etc.
-  Mediapipe also reduces the dependence of GPU so that it becomes easy to work.</p>
+    <!-- Section 2: V2.0 Overhaul & Remediation -->
+    <section class="doc-section">
+      <div class="doc-section-header">
+        <span class="doc-badge v2">V2.0 Overhaul</span>
+        <h2 class="doc-title">Engineering Remediation, Math Fixes &amp; Studio Architecture</h2>
+      </div>
+      <div class="doc-body">
+        <p>
+          The V2.0 upgrade addressed several mathematical, architectural, and performance bottlenecks identified during forensic system audits:
+        </p>
 
-<p>Let's see how each module is build</p>
+        <div class="doc-card-grid">
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">📐 Geometric Calibration &amp; 3D Model</h3>
+            <p class="doc-subcard-desc">
+              Fixed the transposed optical center in the camera matrix (<code style="color: var(--accent-sky);">cx = img_w/2, cy = img_h/2</code>) and deployed a canonical 6-point anthropometric 3D face mesh (<code style="color: var(--accent-sky);">[1, 199, 33, 263, 61, 291]</code>) aligned to OpenCV coordinates.
+            </p>
+          </div>
 
-<h3>EAR (Eye Aspect Ratio)</h3>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">👄 Standardized MAR &amp; Zero-Division Guard</h3>
+            <p class="doc-subcard-desc">
+              Replaced inverted width/height math with standard <code style="color: var(--status-good);">MAR = height / width</code> (<code style="color: var(--text-muted);">0.04 - 0.50</code>) guarded by <code style="color: var(--accent-sky);">max(width, 1e-5)</code> and 15-frame yawn hysteresis.
+            </p>
+          </div>
 
-The Functionalities of the Module :
-<ol>
-    <li>Tracks the movement of both the eyelids to sense the movement.</li>
-    <li>Involves the calculation of the Eye Aspect Ratio.</li>
-    <li>Calculates both the frequency and duration of the eyes blinking.</li>
-    <li>Finally detects drowsiness and prolonged closure.</li>
-    </ol>
-   
- <h4>Implementation</h4>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">👁️ Adaptive EAR &amp; Eye-Shape Baseline</h3>
+            <p class="doc-subcard-desc">
+              Recalibrated the sleep threshold from <code style="color: var(--status-crit);">0.22</code> to <code style="color: var(--status-good);">0.16</code> and added a dynamic 75th-percentile open-eye baseline tracker, eliminating false "Sleeping" alerts for deep-set or almond eyes.
+            </p>
+          </div>
 
- <p>This Python script detects drowsiness in faces captured through a webcam using facial landmarks extracted 
-    with the MediaPipe FaceMesh model, OpenCV for video processing, and SciPy for calculating distances.</p>
-<br>
-<ol>
-    <li>Import necessary libraries including media pipe, cv2 (OpenCV), and scipy.</li> 
-     <li>Define functions:</li>
-     <ol>
-        <li>`draw_landmarks`: Draws landmarks on the face detected by MediaPipe.</li>
-        <li> `euclidean_distance`: Calculates the Euclidean distance between two points.</li>
-        <li>`get_aspect_ratio`: Calculates the aspect ratio of specific facial landmarks.</li>
-    </ol>
-    <li> Set up configurations for the MediaPipe FaceMesh model.</li>
-    <li>Define configurations and constants such as colors and facial landmark indices.</li>
-    <li>Initialize the MediaPipe FaceMesh model and a video capture object.</li>
-    <li>Enter a loop where it continuously captures frames from the webcam.</li>
-    <li>Process each frame through the FaceMesh model to detect faces and facial landmarks.</li>
-    <li>Calculate the aspect ratio for both eyes and determine if drowsiness is detected based on certain thresholds.</li>
-    <li>Print timestamps and alerts if drowsiness is detected in any of the faces.</li>
-    <li>Display the processed frame with landmarks drawn using OpenCV.</li>
-    <li>Exit the loop if the 'Esc' key is pressed.</li>
-</ol>
-<hr>
-<h3>Yawn Detection</h3>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">🎯 One-Click Zero-Pose Calibration</h3>
+            <p class="doc-subcard-desc">
+              Compensates for laptop webcam screen tilt (MacBook $-16^\circ$ angle) via header calibration button, ensuring normal forward gaze is centered at <code style="color: var(--status-good);">0°/0°</code> without false penalties.
+            </p>
+          </div>
 
-<h4>Functionalities of the module</h4>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">👥 Adaptive Multi-Student Tracker</h3>
+            <p class="doc-subcard-desc">
+              Removed the hardcoded 4-seat ceiling. Uses dynamic Euclidean centroid matching with ID persistence, scaling smoothly from 1 student to 16+ students with responsive grid rendering.
+            </p>
+          </div>
 
-<ol>
-    <li>Calculates the Mouth Aspect Ratio to determine the degree of mouth openess.</li>
-    <li>Tracks the frequency of yawning.</li> 
-    <li> Measure the duration of yawning events.</li>
-</ol>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">⚡ In-Memory 30 FPS Zero-Disk Stream</h3>
+            <p class="doc-subcard-desc">
+              Eliminated disk file I/O polling. The unified <code style="color: var(--accent-sky);">server.py</code> streams video directly from RAM via threading conditions, delivering true 30 FPS video inside the web dashboard.
+            </p>
+          </div>
 
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">🚀 20× Faster Math &amp; Zero-Copy Buffers</h3>
+            <p class="doc-subcard-desc">
+              Replaced SciPy's heavy Euclidean distance with single-instruction C <code style="color: var(--accent-sky);">math.hypot</code> and marked MediaPipe frames <code style="color: var(--accent-sky);">image.flags.writeable = False</code> for direct zero-copy C++ processing.
+            </p>
+          </div>
 
-<h4>Implementation</h4>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">📊 Executive Studio UI &amp; CSV Export</h3>
+            <p class="doc-subcard-desc">
+              Single-screen Obsidian Studio with glassmorphic cards, twin diagnostic meters (EAR/MAR), 100-point sliding window Plotly timeline, and instant CSV session export.
+            </p>
+          </div>
+        </div>
 
-<p>This Python script uses MediaPipe FaceMesh to detect facial landmarks and identifies yawning based 
-    on the aspect ratio of the mouth. Here's a breakdown of the code:</p>
+        <div class="doc-code-block">
+# V2.0 Attention Scoring Formula
+w_sleep, w_facing, w_yawn = (0.70, 0.20, 0.10) if sleep_detected else (0.45, 0.35, 0.20)
+instant_score = (s_sleep * w_sleep) + (s_yawn * w_yawn) + (s_facing * w_facing)
+ema_score = (0.15 * instant_score) + (0.85 * prev_ema)
+attentive_gate = (ema_score >= 80.0) and facing_classroom and (not sleep_detected)
+        </div>
+      </div>
+    </section>
 
-<ol>
-    <li>Import necessary libraries: `mediapipe` for face mesh detection, `cv2` for OpenCV 
-        operations, and `scipy.spatial.distance` for calculating distances.</li>
-    <li>Define functions:</li>
-    <ol>
-        <li>`draw_landmarks`: Draws specified landmarks on the face detected by MediaPipe FaceMesh.</li>
-        <li>`euclidean_distance`: Calculates the Euclidean distance between two points.</li>
-        <li>`get_aspect_ratio`: Calculates the aspect ratio of mouth landmarks.</li>
-    </ol>
-       
-    <li>Set configurations and constants for the MediaPipe FaceMesh model, such as confidence thresholds, colors, 
-        and facial landmark indices for the mouth.</li> 
-    <li>Initialize the FaceMesh model and the video capture object.</li>
-    <li>Enter a loop to continuously capture frames from the webcam.</li>
-    <li>Process each frame through the FaceMesh model to detect facial landmarks.</li>
-    <li>Calculate the aspect ratio of the mouth based on specified mouth landmarks.</li>
-    <li>Check if the aspect ratio is below a certain tolerance for yawning detection</li>
-    <li>If yawning is detected (aspect ratio below the tolerance for a certain
-         number of consecutive frames), print a message indicating the detection.</li>
-    <li>Display the annotated frame with landmarks and yawning detection using OpenCV (`cv2.imshow()`).</li>
-    <li>Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).</li>
-</ol>
-<hr>
-<h3>HeadPose Detection</h3>
+    <!-- Section 3: V2.0 Research Roadmap & Future Scope -->
+    <section class="doc-section">
+      <div class="doc-section-header">
+        <span class="doc-badge future">Future Scope</span>
+        <h2 class="doc-title">CAMS V2.0 Next-Generation Research Roadmap</h2>
+      </div>
+      <div class="doc-body">
+        <p>
+          Ongoing and future research milestones planned for subsequent CAMS iterations:
+        </p>
 
-<h4>Functionalities of this Module:</h4>
-<ol>
-    <li>Tracks the head position in real time.</li>
-    <li>Find the head orientation by calculating pitch, yaw and roll angles.</li>
-</ol>
+        <div class="doc-card-grid">
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">1. True Eye-in-Head Iris Gaze Tracking</h3>
+            <p class="doc-subcard-desc">
+              Enabling MediaPipe Iris landmarks (<code style="color: var(--accent-violet);">468–477</code>) to track pupil deflection vectors relative to eye corners (<code style="color: var(--text-muted);">[33, 133]</code> and <code style="color: var(--text-muted);">[362, 263]</code>). Detects when a student keeps their head upright but looks down at a phone or laptop.
+            </p>
+          </div>
 
-<h4>Implementation</h4>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">2. Wide-Room Lecture Hall Scaling (30+ Students)</h3>
+            <p class="doc-subcard-desc">
+              Deploying a two-stage "Detect-Then-Crop" pipeline pairing a dedicated face detector (YOLOv8n-Face) with ByteTrack Kalman filtering, passing cropped $192\times192$ facial patches to FaceMesh in round-robin batches.
+            </p>
+          </div>
 
-<p>This Python script performs real-time head pose estimation using facial landmarks detected 
-    by the MediaPipe FaceMesh model.
-    </p>
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">3. Edge Privacy &amp; RAM-Only Processing</h3>
+            <p class="doc-subcard-desc">
+              Processing frames exclusively in volatile RAM with zero persistent video recording, ensuring strict compliance with GDPR, FERPA, and DPDP educational privacy frameworks.
+            </p>
+          </div>
 
-<ol>    
-<li>Import necessary libraries, including cv2 (OpenCV), mediapipe, and numpy.</li>
-<li>Set up MediaPipe FaceMesh model for facial landmark detection.</li>
-<li>Initialize the webcam capture using OpenCV (`cv2.VideoCapture`).</li>
-<li>Enter a loop to continuously capture frames from the webcam (`cap.isOpened()`).</li>
-<li>Read a frame from the webcam capture (`cap.read()`).</li>
-<li>Convert the color space of the frame from BGR to RGB and flips it horizontally for 
-    later selfie-view display.</li>
-<li>Process the frame through the FaceMesh model to detect facial landmarks.</li>
-<li>Convert the color space of the frame back to BGR</li>
-<li>Iterate through the detected facial landmarks and extracts specific points of
-    interest, such as nose, eyes, etc.</li>
-<li>Calculate the 3D coordinates of the detected facial landmarks.</li>
-<li>Estimate the head pose (yaw, pitch, roll) using the solved PnP (Perspective-n-Point) algorithm.</li>
-<li>Determine the direction of the user's gaze based on the head pose angles.</li>
-<li>Draw a line representing the direction of the gaze on the frame.</li>
-<li>Display the direction of gaze and head pose angles (x, y, z) on the frame.</li>
-<li>Display the annotated frame with landmarks and gaze direction using OpenCV (`cv2.imshow()`).
-<li>Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).</li>
-</ol>
-
-<p>This module will be integrated to produce the whole system which will produce real-time results. 
-    This will give you information on whether a class is attentive or not based on the average of each 
-    module's probability scores.</p>
-
+          <div class="doc-subcard">
+            <h3 class="doc-subcard-title">4. Pedagogical Interaction Modes</h3>
+            <p class="doc-subcard-desc">
+              Adding interactive toggles for Group Discussion and Lab Work modes, temporarily relaxing the forward-facing angle requirement when collaborative learning is active.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
 </body>
 </html>

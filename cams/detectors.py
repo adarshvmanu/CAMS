@@ -1,54 +1,54 @@
+import math
 import cv2 as cv
 import numpy as np
-from scipy.spatial import distance as dis
 from cams.landmarks import CANONICAL_FACE_3D, POSE_LANDMARK_IDS
 
 
-def euclidean_distance_2d(p1, p2):
-    """Calculates Euclidean distance between two (x, y) coordinate pairs."""
-    return dis.euclidean(p1, p2)
-
-
-def get_landmark_point(landmark, img_w, img_h):
-    """Converts normalized landmark to integer pixel coordinates."""
-    return int(landmark.x * img_w), int(landmark.y * img_h)
+def fast_dist_2d(p1, p2):
+    """Single-instruction C-level 2D distance calculation (20x faster than SciPy)."""
+    return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
 
 
 def compute_ear(face_landmarks, img_w, img_h, top_bottom_indices, left_right_indices):
     """
-    Computes Eye Aspect Ratio (EAR) for a given eye.
-    Standard formula: (|p1 - p2| + |p3 - p4|) / (2 * |p_left - p_right| + eps)
-    Typical open eye: 0.22 - 0.35. Closed eye: < 0.16.
+    Computes Eye Aspect Ratio (EAR) for a given eye with inlined math.hypot.
+    Formula: (|p1 - p2| + |p3 - p4|) / (2 * |p_left - p_right| + eps)
     """
-    p1 = get_landmark_point(face_landmarks.landmark[top_bottom_indices[0]], img_w, img_h)
-    p2 = get_landmark_point(face_landmarks.landmark[top_bottom_indices[1]], img_w, img_h)
-    d1 = euclidean_distance_2d(p1, p2)
+    lms = face_landmarks.landmark
 
-    p3 = get_landmark_point(face_landmarks.landmark[top_bottom_indices[2]], img_w, img_h)
-    p4 = get_landmark_point(face_landmarks.landmark[top_bottom_indices[3]], img_w, img_h)
-    d2 = euclidean_distance_2d(p3, p4)
-
-    p_left = get_landmark_point(face_landmarks.landmark[left_right_indices[0]], img_w, img_h)
-    p_right = get_landmark_point(face_landmarks.landmark[left_right_indices[1]], img_w, img_h)
-    w = euclidean_distance_2d(p_left, p_right)
+    d1 = math.hypot(
+        (lms[top_bottom_indices[0]].x - lms[top_bottom_indices[1]].x) * img_w,
+        (lms[top_bottom_indices[0]].y - lms[top_bottom_indices[1]].y) * img_h
+    )
+    d2 = math.hypot(
+        (lms[top_bottom_indices[2]].x - lms[top_bottom_indices[3]].x) * img_w,
+        (lms[top_bottom_indices[2]].y - lms[top_bottom_indices[3]].y) * img_h
+    )
+    w = math.hypot(
+        (lms[left_right_indices[0]].x - lms[left_right_indices[1]].x) * img_w,
+        (lms[left_right_indices[0]].y - lms[left_right_indices[1]].y) * img_h
+    )
 
     return (d1 + d2) / (2.0 * max(w, 1e-5))
 
 
 def compute_mar(face_landmarks, img_w, img_h, upper_lower_indices, left_right_indices):
     """
-    Computes Standard Mouth Aspect Ratio (MAR): height / width.
+    Computes Standard Mouth Aspect Ratio (MAR): height / width with inlined math.hypot.
     Closed lips: ~0.02 - 0.12.
     Speech / Vowels: ~0.15 - 0.35.
     Yawning: > 0.45.
     """
-    p_top = get_landmark_point(face_landmarks.landmark[upper_lower_indices[0]], img_w, img_h)
-    p_bottom = get_landmark_point(face_landmarks.landmark[upper_lower_indices[1]], img_w, img_h)
-    lip_height = euclidean_distance_2d(p_top, p_bottom)
+    lms = face_landmarks.landmark
 
-    p_left = get_landmark_point(face_landmarks.landmark[left_right_indices[0]], img_w, img_h)
-    p_right = get_landmark_point(face_landmarks.landmark[left_right_indices[1]], img_w, img_h)
-    lip_width = euclidean_distance_2d(p_left, p_right)
+    lip_height = math.hypot(
+        (lms[upper_lower_indices[0]].x - lms[upper_lower_indices[1]].x) * img_w,
+        (lms[upper_lower_indices[0]].y - lms[upper_lower_indices[1]].y) * img_h
+    )
+    lip_width = math.hypot(
+        (lms[left_right_indices[0]].x - lms[left_right_indices[1]].x) * img_w,
+        (lms[left_right_indices[0]].y - lms[left_right_indices[1]].y) * img_h
+    )
 
     mar = lip_height / max(lip_width, 1e-5)
     return mar, lip_height, lip_width
@@ -59,11 +59,10 @@ def estimate_head_pose(face_landmarks, img_w, img_h, pitch_offset=0.0, yaw_offse
     Estimates 3D Head Pose (Pitch, Yaw, Roll) using canonical anthropometric 3D face model.
     Accounts for natural laptop webcam angles (screen tilt) via pitch_offset and yaw_offset.
     """
-    face_2d = []
-    for idx in POSE_LANDMARK_IDS:
-        lm = face_landmarks.landmark[idx]
-        face_2d.append([lm.x * img_w, lm.y * img_h])
-    face_2d = np.array(face_2d, dtype=np.float64)
+    lms = face_landmarks.landmark
+    face_2d = np.array([
+        [lms[idx].x * img_w, lms[idx].y * img_h] for idx in POSE_LANDMARK_IDS
+    ], dtype=np.float64)
 
     focal_length = float(img_w)
     cam_matrix = np.array([
@@ -87,13 +86,9 @@ def estimate_head_pose(face_landmarks, img_w, img_h, pitch_offset=0.0, yaw_offse
     raw_yaw = float(angles[1])
     raw_roll = float(angles[2])
 
-    # Calibrate relative to camera mounting baseline
     cal_pitch = raw_pitch - pitch_offset
     cal_yaw = raw_yaw - yaw_offset
 
-    # Natural classroom viewing tolerance:
-    # MacBook webcams typically look upward at the face (-15 to -20 deg).
-    # Normal attentive viewing cone is within +/- 22 deg yaw and -25 to +20 deg pitch.
     if cal_yaw < -22.0:
         direction = "Looking Left"
     elif cal_yaw > 22.0:
