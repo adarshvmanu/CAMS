@@ -16,14 +16,15 @@
       <!-- 2.1 TOP ARCHITECTURAL HEADER BAR -->
       <header class="studio-header">
         <div class="header-left-zone">
-          <div class="brand-emblem" title="CAMS Vision Core">
+          <div class="brand-emblem" id="brand-emblem-btn" title="CAMS Vision Core · Configure Session">
             <div class="brand-emblem-core"></div>
           </div>
           <div class="brand-breadcrumb">
             <span class="crumb-brand">CAMS</span>
             <span class="crumb-sep">/</span>
-            <span class="crumb-course">CS-301 Algorithms</span>
-            <span class="crumb-room">· Lecture Hall 204</span>
+            <span id="breadcrumb-course" class="crumb-course">Configure Class...</span>
+            <span id="breadcrumb-room" class="crumb-room">· Session Init</span>
+            <button id="btn-edit-session" class="btn-edit-session" title="Edit Classroom & Course Setup">✎</button>
           </div>
 
           <div class="header-divider-v"></div>
@@ -50,13 +51,13 @@
                 <circle class="ring-track" cx="10" cy="10" r="8"></circle>
                 <circle id="island-ring-progress" class="ring-progress" cx="10" cy="10" r="8" stroke-dasharray="50.26" stroke-dashoffset="50.26"></circle>
               </svg>
-              <span id="island-hysteresis-text">Cohort Stable · 1/1 Locked</span>
+              <span id="island-hysteresis-text">Initializing Optical Engine...</span>
             </div>
 
             <div class="island-divider"></div>
 
             <div class="island-segment">
-              <span id="island-focus-val" class="tabular-nums mono font-semibold" style="color: var(--signal-amber)">68.0% Focus</span>
+              <span id="island-focus-val" class="tabular-nums mono font-semibold" style="color: var(--signal-amber)">--.-% Focus</span>
             </div>
           </div>
         </div>
@@ -88,24 +89,24 @@
 
       <!-- MAIN STUDIO WORKSPACE -->
       <main id="view-studio" class="studio-view-transition" style="display: flex; flex-direction: column; flex: 1;">
-        <!-- 2.2 ROW 1: SEAMLESS 4-COLUMN METRIC RIBBON -->
+        <!-- ROW 1: SEAMLESS 4-COLUMN METRIC RIBBON -->
         <section class="metric-ribbon">
           <!-- Col 1: Instantaneous Focus -->
           <div class="ribbon-col">
             <div class="ribbon-header-row">
               <span class="ribbon-micro-label">Instantaneous Focus</span>
               <div class="ribbon-meta-tag">
-                <span id="focus-dot" class="dot-indicator amber"></span>
-                <span id="focus-delta" class="mono tabular-nums">-31.3% vs mean</span>
+                <span id="focus-dot" class="dot-indicator green"></span>
+                <span id="focus-delta" class="mono tabular-nums">0.0% vs mean</span>
               </div>
             </div>
             <div class="ribbon-hero-row">
-              <span id="metric-focus-hero" class="ribbon-hero-num tabular-nums">68.0%</span>
+              <span id="metric-focus-hero" class="ribbon-hero-num tabular-nums">--.-%</span>
             </div>
             <div class="ribbon-bottom-row">
               <span>4Hz tabular · EMA smoothed</span>
               <div class="gpu-bar-track">
-                <div id="bar-focus-fill" class="gpu-bar-fill" style="transform: scaleX(0.68);"></div>
+                <div id="bar-focus-fill" class="gpu-bar-fill" style="transform: scaleX(0);"></div>
               </div>
             </div>
           </div>
@@ -116,16 +117,16 @@
               <span class="ribbon-micro-label">Session Rolling Mean</span>
               <div class="ribbon-meta-tag">
                 <span class="dot-indicator green"></span>
-                <span id="meta-cohort-stable">Cohort stable (1/1 Attentive)</span>
+                <span id="meta-cohort-stable">Scanning camera FOV</span>
               </div>
             </div>
             <div class="ribbon-hero-row">
-              <span id="metric-mean-hero" class="ribbon-hero-num tabular-nums">99.3%</span>
+              <span id="metric-mean-hero" class="ribbon-hero-num tabular-nums">--.-%</span>
             </div>
             <div class="ribbon-bottom-row">
-              <span>100-pt window (elapsed time)</span>
+              <span id="meta-window-label">Elapsed window</span>
               <div class="gpu-bar-track">
-                <div id="bar-mean-fill" class="gpu-bar-fill green" style="transform: scaleX(0.993);"></div>
+                <div id="bar-mean-fill" class="gpu-bar-fill green" style="transform: scaleX(0);"></div>
               </div>
             </div>
           </div>
@@ -136,16 +137,16 @@
               <span class="ribbon-micro-label">Board Gaze Alignment</span>
               <div class="ribbon-meta-tag">
                 <span class="dot-indicator blue"></span>
-                <span id="meta-pitch-angle" class="mono tabular-nums">-18.4° pitch</span>
+                <span id="meta-pitch-angle" class="mono tabular-nums">0.0° pitch</span>
               </div>
             </div>
             <div class="ribbon-hero-row">
-              <span id="metric-facing-hero" class="ribbon-hero-num tabular-nums">0.0%</span>
+              <span id="metric-facing-hero" class="ribbon-hero-num tabular-nums">--.-%</span>
             </div>
             <div class="ribbon-bottom-row">
               <span>Within normal cone · session mean</span>
               <div class="gpu-bar-track">
-                <div id="bar-facing-fill" class="gpu-bar-fill blue" style="transform: scaleX(0.0);"></div>
+                <div id="bar-facing-fill" class="gpu-bar-fill blue" style="transform: scaleX(0);"></div>
               </div>
             </div>
           </div>
@@ -155,23 +156,23 @@
             <div class="ribbon-header-row">
               <span class="ribbon-micro-label">Fatigue &amp; Yawn Vector</span>
               <div class="ribbon-meta-tag">
-                <span id="yawn-dot" class="dot-indicator red"></span>
-                <span id="meta-yawn-trigger">MAR &gt; 0.60 trigger</span>
+                <span id="yawn-dot" class="dot-indicator green"></span>
+                <span id="meta-yawn-trigger">Normal closure rate</span>
               </div>
             </div>
             <div class="ribbon-hero-row">
-              <span id="metric-fatigue-hero" class="ribbon-hero-num tabular-nums">0.80</span>
+              <span id="metric-fatigue-hero" class="ribbon-hero-num tabular-nums">0.00</span>
             </div>
             <div class="ribbon-bottom-row">
-              <span id="meta-hysteresis-gate">Hysteresis gate: 70% (1.4s)</span>
+              <span id="meta-hysteresis-gate">Hysteresis gate: 0% (0.0s)</span>
               <div class="gpu-bar-track">
-                <div id="bar-fatigue-fill" class="gpu-bar-fill red" style="transform: scaleX(0.80);"></div>
+                <div id="bar-fatigue-fill" class="gpu-bar-fill red" style="transform: scaleX(0);"></div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 2.3 ROW 2: MIDDLE SPLIT PANE -->
+        <!-- ROW 2: MIDDLE SPLIT PANE -->
         <section class="middle-split-grid">
           <!-- Left Pane (5 Cols): Optical Feed -->
           <div class="optical-feed-pane">
@@ -182,7 +183,7 @@
               </div>
               <div class="pane-status-pill">
                 <span class="dot-indicator blue"></span>
-                <span id="feed-locked-count" class="mono tabular-nums">1 subject(s) locked</span>
+                <span id="feed-locked-count" class="mono tabular-nums">0 subject(s) locked</span>
               </div>
             </div>
 
@@ -204,9 +205,9 @@
                 <canvas id="gizmo-canvas" class="gizmo-sphere-canvas" width="68" height="68"></canvas>
                 <div class="gizmo-readout-col">
                   <span class="gizmo-readout-header">3D Head Pose</span>
-                  <span id="gizmo-pitch-val" class="mono tabular-nums gizmo-angle-row pitch alert">P: -18.4°</span>
-                  <span id="gizmo-yaw-val" class="mono tabular-nums gizmo-angle-row yaw">Y: +14.2°</span>
-                  <span id="gizmo-roll-val" class="mono tabular-nums gizmo-angle-row roll">R: -1.8°</span>
+                  <span id="gizmo-pitch-val" class="mono tabular-nums gizmo-angle-row pitch">P: 0.0°</span>
+                  <span id="gizmo-yaw-val" class="mono tabular-nums gizmo-angle-row yaw">Y: 0.0°</span>
+                  <span id="gizmo-roll-val" class="mono tabular-nums gizmo-angle-row roll">R: 0.0°</span>
                 </div>
               </div>
             </div>
@@ -243,19 +244,19 @@
             <div class="curve-legend-strip">
               <div class="legend-item">
                 <span class="legend-bullet" style="background-color: var(--ink-primary);"></span>
-                <span>Live Focus (<span id="leg-focus" class="mono tabular-nums">68.0%</span>)</span>
+                <span>Live Focus (<span id="leg-focus" class="mono tabular-nums">--.-%</span>)</span>
               </div>
               <div class="legend-item">
                 <span class="legend-bullet" style="background-color: var(--ink-tertiary);"></span>
-                <span>Session Mean (<span id="leg-mean" class="mono tabular-nums">99.3%</span>)</span>
+                <span>Session Mean (<span id="leg-mean" class="mono tabular-nums">--.-%</span>)</span>
               </div>
               <div class="legend-item">
                 <span class="legend-bullet" style="background-color: var(--signal-blue);"></span>
-                <span>Board Alignment (<span id="leg-facing" class="mono tabular-nums">0.0%</span>)</span>
+                <span>Board Alignment (<span id="leg-facing" class="mono tabular-nums">--.-%</span>)</span>
               </div>
               <div class="legend-item">
                 <span class="legend-bullet" style="background-color: var(--signal-red);"></span>
-                <span>Mouth Ratio / MAR (<span id="leg-mar" class="mono tabular-nums">0.80</span>)</span>
+                <span>Mouth Ratio / MAR (<span id="leg-mar" class="mono tabular-nums">0.00</span>)</span>
               </div>
             </div>
 
@@ -264,31 +265,31 @@
               <canvas id="master-chart-canvas"></canvas>
             </div>
 
-            <!-- Lecture Syllabus Sync Scrubber -->
+            <!-- Dynamic Lecture Syllabus Sync Scrubber -->
             <div class="syllabus-sync-wrapper">
               <div class="syllabus-micro-header">Lecture Syllabus Sync</div>
               <div class="syllabus-scrubber-grid">
                 <div class="syllabus-segment-card">
-                  <span class="syllabus-card-title">I. Recurrence Relations Intro</span>
-                  <span class="syllabus-card-sub mono">00:00 – 00:08 · Mean Focus 99.8%</span>
-                </div>
-                <div class="syllabus-segment-card">
-                  <span class="syllabus-card-title">II. Desk Problem Set</span>
-                  <span class="syllabus-card-sub mono">00:08 – 00:11 · Note-Taking Window</span>
+                  <span id="syllabus-card-1-title" class="syllabus-card-title">I. Setup &amp; Roll Call</span>
+                  <span id="syllabus-card-1-sub" class="syllabus-card-sub mono">Session Initialized</span>
                 </div>
                 <div class="syllabus-segment-card active">
-                  <span class="syllabus-card-title">
-                    <span id="syllabus-active-dot" class="dot-indicator amber"></span>
-                    <span>III. Active Lecture Segment</span>
+                  <span id="syllabus-card-2-title" class="syllabus-card-title">
+                    <span id="syllabus-active-dot" class="dot-indicator green"></span>
+                    <span id="syllabus-active-topic-name">II. Active Instruction</span>
                   </span>
-                  <span class="syllabus-card-sub mono">00:11 – Present · Live Telemetry Synced</span>
+                  <span id="syllabus-card-2-sub" class="syllabus-card-sub mono">Live Telemetry Synced</span>
+                </div>
+                <div class="syllabus-segment-card">
+                  <span id="syllabus-card-3-title" class="syllabus-card-title">III. Q&amp;A &amp; Synthesis</span>
+                  <span id="syllabus-card-3-sub" class="syllabus-card-sub mono">Upcoming Segment</span>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 2.4 ROW 3: BOTTOM SPLIT PANE -->
+        <!-- ROW 3: BOTTOM SPLIT PANE -->
         <section class="bottom-split-grid">
           <!-- Left Pane (8 Cols): Participant Biometric Ledger -->
           <div class="biometric-ledger-pane">
@@ -297,7 +298,7 @@
                 <span class="pane-title">Participant Biometric Ledger</span>
                 <span class="pane-subtitle">· Click row to isolate trajectory &amp; inspect 3D pose</span>
               </div>
-              <span id="ledger-active-slots" class="mono tabular-nums text-xs" style="color: var(--ink-secondary);">1 locked · 29 standby slots</span>
+              <span id="ledger-active-slots" class="mono tabular-nums text-xs" style="color: var(--ink-secondary);">Scanning camera field of view...</span>
             </div>
 
             <div class="ledger-table-container">
@@ -313,7 +314,7 @@
                   </tr>
                 </thead>
                 <tbody id="ledger-table-body">
-                  <!-- Dynamic Student Rows are inserted here -->
+                  <!-- Real tracked students or clean empty state are rendered dynamically -->
                 </tbody>
               </table>
             </div>
@@ -334,7 +335,7 @@
             </div>
 
             <!-- AI Lecture Pulse Card -->
-            <div id="ai-pulse-card" class="ai-pulse-card warn">
+            <div id="ai-pulse-card" class="ai-pulse-card stable">
               <div class="ai-pulse-header-row">
                 <div class="ai-pulse-title-wrap">
                   <svg class="ai-pulse-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -347,15 +348,15 @@
 
               <div class="ai-pulse-body">
                 <p id="ai-pulse-headline" class="ai-pulse-headline">
-                  Subject 01 shifted to downward pitch (-18.4°) with normal ocular/mouth vectors.
+                  Scanning optical feed — awaiting participants in camera field of view.
                 </p>
                 <p id="ai-pulse-detail" class="ai-pulse-detail">
-                  Pattern matches desk note-taking rather than drowsiness (EAR 0.29, MAR 0.07).
+                  Auto-Adaptive tracking is ready to measure eye closure, yawning kinematics, and head pose.
                 </p>
               </div>
 
               <div class="ai-pulse-chips-row">
-                <button id="btn-copy-brief" class="pulse-action-chip" title="Copy 4-line executive plain-text brief to clipboard">
+                <button id="btn-copy-brief" class="pulse-action-chip" title="Copy executive plain-text session brief to clipboard">
                   <span>✦</span>
                   <span id="btn-copy-brief-text">Copy Session Brief</span>
                 </button>
@@ -369,19 +370,60 @@
             <div class="telemetry-timeline-container">
               <div class="telemetry-timeline-thread"></div>
               <div id="telemetry-event-list" class="telemetry-timeline-list">
-                <div class="telemetry-event-row">
-                  <span class="event-time-stamp mono tabular-nums">--:--:--</span>
-                  <div class="event-hollow-node blue"></div>
-                  <div class="event-content-box">
-                    <span class="event-primary-text">CAMS Unified Studio pipeline initialized</span>
-                    <span class="event-tech-context">In-memory 30 FPS MJPEG capture active</span>
-                  </div>
-                </div>
+                <!-- Dynamically populated without wrapping text -->
               </div>
             </div>
           </div>
         </section>
       </main>
+    </div>
+  </div>
+
+  <!-- INITIAL BOOT & SESSION CONFIGURATION MODAL -->
+  <div id="session-modal-backdrop" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-emblem">
+            <div class="brand-emblem-core"></div>
+          </div>
+          <div>
+            <h2 class="modal-title">Configure Classroom Session</h2>
+            <p class="modal-subtitle">Enter your course and classroom parameters to initialize live CAMS telemetry.</p>
+          </div>
+        </div>
+      </div>
+
+      <form id="session-config-form" class="modal-body">
+        <div class="form-row">
+          <label class="form-label" for="input-class-name">Course / Subject Name</label>
+          <input type="text" id="input-class-name" class="form-input" placeholder="e.g. CS-301 Algorithms &amp; Data Structures" required />
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label class="form-label" for="input-room">Classroom / Hall ID</label>
+            <input type="text" id="input-room" class="form-input" placeholder="e.g. Lecture Hall 204" required />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="input-instructor">Instructor / Lead</label>
+            <input type="text" id="input-instructor" class="form-input" placeholder="e.g. Prof. Adarsh Manu" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="input-topic">Lecture Topic / Focus</label>
+          <input type="text" id="input-topic" class="form-input" placeholder="e.g. Recurrence Relations &amp; Dynamic Programming" />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="btn-modal-cancel" class="btn-modal-secondary" style="display: none;">Cancel</button>
+          <button type="submit" class="btn-modal-primary">
+            <span>Initialize Live Session</span>
+            <span>→</span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 

@@ -4,13 +4,164 @@
  */
 
 // ============================================================================
-// 1. TELEMETRY & SPATIAL ENGINE DEFINITIONS
+// 1. SESSION CONFIGURATION & BOOT MANAGEMENT (NO HARDCODED VALUES)
+// ============================================================================
+
+const SESSION_STORAGE_KEY = 'cams_session_config';
+
+let sessionConfig = {
+  className: '',
+  room: '',
+  instructor: '',
+  topic: '',
+  startTime: Date.now()
+};
+
+function loadSessionConfig() {
+  try {
+    const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (saved) {
+      sessionConfig = JSON.parse(saved);
+      if (!sessionConfig.startTime) sessionConfig.startTime = Date.now();
+      applySessionConfig();
+      return true;
+    }
+  } catch (err) {
+    console.error('Failed to load session config:', err);
+  }
+  return false;
+}
+
+function saveSessionConfig(config) {
+  sessionConfig = { ...sessionConfig, ...config };
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionConfig));
+  } catch (err) {
+    console.error('Failed to save session config:', err);
+  }
+  applySessionConfig();
+}
+
+function applySessionConfig() {
+  const courseEl = document.getElementById('breadcrumb-course');
+  const roomEl = document.getElementById('breadcrumb-room');
+  const topicEl = document.getElementById('syllabus-active-topic-name');
+
+  if (courseEl) courseEl.textContent = sessionConfig.className || 'Class Session';
+  if (roomEl) roomEl.textContent = sessionConfig.room ? `· ${sessionConfig.room}` : '· Optical Studio';
+  if (topicEl) topicEl.textContent = sessionConfig.topic ? `II. ${sessionConfig.topic}` : 'II. Core Instruction';
+
+  updateSyllabusPhases();
+}
+
+function openSessionModal(isEdit = false) {
+  const backdrop = document.getElementById('session-modal-backdrop');
+  const btnCancel = document.getElementById('btn-modal-cancel');
+  const inputClass = document.getElementById('input-class-name');
+  const inputRoom = document.getElementById('input-room');
+  const inputInstructor = document.getElementById('input-instructor');
+  const inputTopic = document.getElementById('input-topic');
+
+  if (!backdrop) return;
+
+  if (inputClass) inputClass.value = sessionConfig.className || '';
+  if (inputRoom) inputRoom.value = sessionConfig.room || '';
+  if (inputInstructor) inputInstructor.value = sessionConfig.instructor || '';
+  if (inputTopic) inputTopic.value = sessionConfig.topic || '';
+
+  if (btnCancel) {
+    btnCancel.style.display = isEdit ? 'inline-block' : 'none';
+  }
+
+  backdrop.classList.add('show');
+}
+
+function closeSessionModal() {
+  const backdrop = document.getElementById('session-modal-backdrop');
+  if (backdrop) backdrop.classList.remove('show');
+}
+
+function initSessionSetup() {
+  const hasConfig = loadSessionConfig();
+
+  // If no session config exists, prompt user immediately on initial boot
+  if (!hasConfig || !sessionConfig.className) {
+    setTimeout(() => openSessionModal(false), 200);
+  }
+
+  // Edit button in header
+  const btnEdit = document.getElementById('btn-edit-session');
+  if (btnEdit) {
+    btnEdit.addEventListener('click', () => openSessionModal(true));
+  }
+
+  const brandBtn = document.getElementById('brand-emblem-btn');
+  if (brandBtn) {
+    brandBtn.addEventListener('click', () => openSessionModal(true));
+  }
+
+  // Cancel button
+  const btnCancel = document.getElementById('btn-modal-cancel');
+  if (btnCancel) {
+    btnCancel.addEventListener('click', closeSessionModal);
+  }
+
+  // Form submit
+  const form = document.getElementById('session-config-form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const className = document.getElementById('input-class-name')?.value.trim() || 'Class Session';
+      const room = document.getElementById('input-room')?.value.trim() || 'Classroom';
+      const instructor = document.getElementById('input-instructor')?.value.trim() || '';
+      const topic = document.getElementById('input-topic')?.value.trim() || 'General Lecture';
+
+      saveSessionConfig({
+        className,
+        room,
+        instructor,
+        topic,
+        startTime: sessionConfig.startTime || Date.now()
+      });
+
+      closeSessionModal();
+      showToast(`Session Initialized: ${className}`);
+      logIncident(`Session initialized: ${className} (${room})`, 'blue', instructor ? `Lead: ${instructor}` : '');
+    });
+  }
+}
+
+// Dynamic Lecture Syllabus Scrubber based on real session elapsed time
+function updateSyllabusPhases() {
+  const start = new Date(sessionConfig.startTime || Date.now());
+  const now = new Date();
+  const elapsedMin = Math.max(0, Math.floor((now - start) / 60000));
+
+  const formatClock = (d) => {
+    return d.toTimeString().split(' ')[0].substring(0, 5);
+  };
+
+  const endPhase1 = new Date(start.getTime() + 8 * 60000);
+
+  const card1Sub = document.getElementById('syllabus-card-1-sub');
+  const card2Sub = document.getElementById('syllabus-card-2-sub');
+
+  if (card1Sub) {
+    card1Sub.textContent = `${formatClock(start)} – ${formatClock(endPhase1)} · Roll Call`;
+  }
+  if (card2Sub) {
+    card2Sub.textContent = `${formatClock(endPhase1)} – Present · Active (${elapsedMin}m)`;
+  }
+}
+
+// ============================================================================
+// 2. TELEMETRY & SPATIAL ENGINE DEFINITIONS
 // ============================================================================
 
 const MAX_HISTORY_POINTS = 100;
 let sessionLogs = [];
 let prevStudentStates = {};
-let maxSessionStudents = 1;
+let maxSessionStudents = 0;
 let selectedStudentId = 1;
 let deskExerciseMode = false;
 let deskExerciseTimeout = null;
@@ -45,7 +196,7 @@ function draw3DPoseSphere(ctx, yawDeg, pitchDeg, isAlert = false) {
   const H = 68;
   const cx = W / 2;
   const cy = H / 2;
-  const r = 27;
+  const r = 26;
 
   ctx.clearRect(0, 0, W, H);
 
@@ -57,19 +208,19 @@ function draw3DPoseSphere(ctx, yawDeg, pitchDeg, isAlert = false) {
   ctx.stroke();
 
   // 2. Equator & Meridian Ellipses
-  ctx.strokeStyle = 'rgba(161, 161, 170, 0.32)';
+  ctx.strokeStyle = 'rgba(161, 161, 170, 0.30)';
   ctx.lineWidth = 1.0;
   ctx.beginPath();
-  ctx.ellipse(cx, cy, r, 10, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, cy, r, 9, 0, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.ellipse(cx, cy, 10, r, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, cy, 9, r, 0, 0, Math.PI * 2);
   ctx.stroke();
 
   // 3. Project 3D Head Normal Vector from Yaw & Pitch
   const radYaw = (yawDeg * Math.PI) / 180;
-  const radPitch = (-pitchDeg * Math.PI) / 180; // Negative pitch points downward
+  const radPitch = (-pitchDeg * Math.PI) / 180;
   const vx = cx + r * Math.sin(radYaw) * Math.cos(radPitch);
   const vy = cy + r * Math.sin(radPitch);
 
@@ -97,8 +248,8 @@ function draw3DPoseSphere(ctx, yawDeg, pitchDeg, isAlert = false) {
 
 // Inline 5-Second Biometric Waveform Sparkline
 function drawStudentSparkline(ctx, samples, isThresholdExceeded) {
-  const W = 138;
-  const H = 24;
+  const W = 130;
+  const H = 22;
   ctx.clearRect(0, 0, W, H);
   if (!samples || samples.length < 2) return;
 
@@ -118,52 +269,20 @@ function drawStudentSparkline(ctx, samples, isThresholdExceeded) {
   ctx.stroke();
 }
 
-// Corner Reticle on Video Canvas
-function drawSpringCornerReticle(ctx, x, y, w, h, cornerLen = 22) {
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-  ctx.lineWidth = 1.0;
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(x, y, w, h, 12);
-  } else {
-    ctx.rect(x, y, w, h);
-  }
-  ctx.stroke();
-
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = 'round';
-
-  const corners = [
-    [x, y, 1, 1],
-    [x + w, y, -1, 1],
-    [x, y + h, 1, -1],
-    [x + w, y + h, -1, -1]
-  ];
-
-  for (const [cx, cy, dx, dy] of corners) {
-    ctx.beginPath();
-    ctx.moveTo(cx + dx * cornerLen, cy);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(cx, cy + dy * cornerLen);
-    ctx.stroke();
-  }
-}
-
 // ============================================================================
-// 2. TWO-SPEED TELEMETRY ENGINE (60FPS rAF + 4HZ TABULAR THROTTLE)
+// 3. TWO-SPEED TELEMETRY ENGINE (60FPS rAF + 4HZ TABULAR THROTTLE)
 // ============================================================================
 
 class TwoSpeedTelemetryEngine {
   constructor() {
     this.target = {
-      focus: 100,
-      facing: 100,
-      ear: 0.29,
-      mar: 0.07,
+      focus: 0,
+      facing: 0,
+      ear: 0.28,
+      mar: 0.08,
       yaw: 0,
       pitch: 0,
-      roll: -1.8,
+      roll: 0,
       drowsyPct: 0,
       yawnPct: 0,
       activeCount: 0,
@@ -175,14 +294,14 @@ class TwoSpeedTelemetryEngine {
     this.gateHoldMs = 0;
     this.sumFocus = 0;
     this.frameCount = 0;
-    this.sessionMean = 99.3;
+    this.sessionMean = 0;
+    this.hasReceivedData = false;
 
-    // Per-student waveform buffer (150 samples = 5s @ 30fps)
-    this.studentSparklines = {}; // studentId -> Array of numbers
-    this.studentGateMs = {};      // studentId -> gate timer
+    // Per-student waveform buffer
+    this.studentSparklines = {};
+    this.studentGateMs = {};
 
     this.lastFrameTime = performance.now();
-    this.lastSynthesizeTime = 0;
     this.fpsEstimate = 30.0;
     this.fpsFrameCounter = 0;
     this.fpsTimer = performance.now();
@@ -192,8 +311,8 @@ class TwoSpeedTelemetryEngine {
     const chart = packet.chart || packet;
     const students = chart.students || [];
 
-    const focusVal = Number(chart.overall_score ?? packet.classAttention ?? 100);
-    const facingVal = Number(chart.facing_classroom ?? packet.facingBoardPct ?? 100);
+    const focusVal = Number(chart.overall_score ?? packet.classAttention ?? 0);
+    const facingVal = Number(chart.facing_classroom ?? packet.facingBoardPct ?? 0);
     const countVal = Number(chart.count ?? packet.totalStudents ?? students.length);
     const attentiveVal = Number(chart.attention_count ?? packet.attentiveCount ?? 0);
     const sleepVal = Number(chart.sleep_detected ?? packet.drowsyPct ?? 0);
@@ -207,10 +326,14 @@ class TwoSpeedTelemetryEngine {
     this.target.yawnPct = yawnVal;
     this.target.students = students;
 
-    // Cumulative Session Mean
-    this.sumFocus += focusVal;
-    this.frameCount += 1;
-    this.sessionMean = this.frameCount > 0 ? (this.sumFocus / this.frameCount) : focusVal;
+    this.hasReceivedData = true;
+
+    // Cumulative Session Mean (only if count > 0)
+    if (countVal > 0) {
+      this.sumFocus += focusVal;
+      this.frameCount += 1;
+      this.sessionMean = this.frameCount > 0 ? (this.sumFocus / this.frameCount) : focusVal;
+    }
 
     // Find selected or primary student
     let primary = students.find(s => s.id === selectedStudentId);
@@ -220,23 +343,28 @@ class TwoSpeedTelemetryEngine {
     }
 
     if (primary) {
-      this.target.ear = Number(primary.ear ?? 0.29);
-      this.target.mar = Number(primary.mar ?? 0.07);
+      this.target.ear = Number(primary.ear ?? 0.28);
+      this.target.mar = Number(primary.mar ?? 0.08);
       this.target.yaw = Number(primary.yaw ?? 0);
       this.target.pitch = Number(primary.pitch ?? 0);
-      this.target.roll = Number(primary.roll ?? -1.8);
+      this.target.roll = Number(primary.roll ?? 0);
+    } else {
+      this.target.ear = 0.28;
+      this.target.mar = 0.08;
+      this.target.yaw = 0;
+      this.target.pitch = 0;
+      this.target.roll = 0;
     }
 
     // Update Sparklines for each student
     students.forEach(s => {
       if (!this.studentSparklines[s.id]) {
-        this.studentSparklines[s.id] = new Array(30).fill(Number(s.mar || 0.07));
+        this.studentSparklines[s.id] = new Array(25).fill(Number(s.mar || 0.08));
       }
       const buffer = this.studentSparklines[s.id];
-      // Normalize MAR to 0..1 range (0.60 is threshold)
-      const normVal = Math.min(1.0, (Number(s.mar || 0.07)) / 0.80);
+      const normVal = Math.min(1.0, (Number(s.mar || 0.08)) / 0.80);
       buffer.push(normVal);
-      if (buffer.length > 100) buffer.shift();
+      if (buffer.length > 80) buffer.shift();
     });
 
     // Clean departed students
@@ -253,7 +381,7 @@ class TwoSpeedTelemetryEngine {
     this.fpsFrameCounter++;
     const now = performance.now();
     if (now - this.fpsTimer >= 1000) {
-      this.fpsEstimate = Math.min(30.0, Math.max(15.0, (this.fpsFrameCounter * 1000) / (now - this.fpsTimer)));
+      this.fpsEstimate = Math.min(30.0, Math.max(10.0, (this.fpsFrameCounter * 1000) / (now - this.fpsTimer)));
       this.fpsFrameCounter = 0;
       this.fpsTimer = now;
     }
@@ -273,9 +401,10 @@ class TwoSpeedTelemetryEngine {
 
     // Hysteresis Gate Hold Timer (0ms -> 2000ms)
     const isGateActive =
-      this.target.mar > 0.60 ||
-      this.target.ear < 0.20 ||
-      (this.target.pitch < -15 && !deskExerciseMode);
+      this.target.students.length > 0 &&
+      (this.target.mar > 0.60 ||
+       this.target.ear < 0.20 ||
+       (this.target.pitch < -15 && !deskExerciseMode));
 
     if (isGateActive) {
       this.gateHoldMs = Math.min(2000, this.gateHoldMs + dt * 1000);
@@ -289,7 +418,8 @@ class TwoSpeedTelemetryEngine {
       sessionMean: this.sessionMean,
       gateProgress: this.gateHoldMs / 2000,
       gateSeconds: this.gateHoldMs / 1000,
-      fps: this.fpsEstimate
+      fps: this.fpsEstimate,
+      hasData: this.hasReceivedData
     };
   }
 }
@@ -297,7 +427,7 @@ class TwoSpeedTelemetryEngine {
 const engine = new TwoSpeedTelemetryEngine();
 
 // ============================================================================
-// 3. CHART.JS CUBIC-BEZIER STREAM ENGINE
+// 4. CHART.JS CUBIC-BEZIER STREAM ENGINE
 // ============================================================================
 
 let chartInstance = null;
@@ -324,7 +454,7 @@ function initMasterChart() {
           label: 'Live Focus %',
           data: chartHistory.focus,
           borderColor: '#18181B',
-          borderWidth: 2.5,
+          borderWidth: 2.2,
           backgroundColor: 'rgba(24, 24, 27, 0.04)',
           fill: true,
           tension: 0.28,
@@ -347,7 +477,7 @@ function initMasterChart() {
           label: 'Board Alignment %',
           data: chartHistory.facing,
           borderColor: '#0071E3',
-          borderWidth: 1.8,
+          borderWidth: 1.6,
           pointRadius: 0,
           fill: false,
           tension: 0.28
@@ -356,7 +486,7 @@ function initMasterChart() {
           label: 'MAR / Fatigue %',
           data: chartHistory.fatigue,
           borderColor: '#FF3B30',
-          borderWidth: 1.6,
+          borderWidth: 1.5,
           pointRadius: 0,
           fill: false,
           tension: 0.28
@@ -381,7 +511,7 @@ function initMasterChart() {
         x: {
           grid: { display: false },
           ticks: {
-            font: { family: 'JetBrains Mono', size: 11 },
+            font: { family: 'JetBrains Mono', size: 10.5 },
             color: '#A1A1AA',
             maxRotation: 0,
             minRotation: 0,
@@ -398,7 +528,7 @@ function initMasterChart() {
             stepSize: 25,
             callback: (v) => `${v}%`,
             color: '#A1A1AA',
-            font: { family: 'JetBrains Mono', size: 11 }
+            font: { family: 'JetBrains Mono', size: 10.5 }
           },
           border: { display: false }
         }
@@ -406,7 +536,7 @@ function initMasterChart() {
     }
   });
 
-  // Wire Segmented Filter Buttons
+  // Filter Buttons
   document.querySelectorAll('.filter-tab-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       document.querySelectorAll('.filter-tab-btn').forEach(b => b.classList.remove('active'));
@@ -462,30 +592,30 @@ function pushChartPoint(timestamp, focus, mean, facing, fatiguePct) {
 }
 
 // ============================================================================
-// 4. DETERMINISTIC AI LECTURE PULSE SYNTHESIZER
+// 5. DETERMINISTIC AI LECTURE PULSE SYNTHESIZER
 // ============================================================================
 
-function synthesizeLecturePulse({ focusMean, focusDelta, facingPct, primaryStudent, isDeskMode }) {
-  if (!primaryStudent) {
+function synthesizeLecturePulse({ focusMean, focusDelta, facingPct, primaryStudent, isDeskMode, hasData }) {
+  if (!hasData || !primaryStudent) {
     return {
       severity: 'stable',
-      headline: 'Optical feed active — awaiting participant lock in camera field of view.',
-      detail: 'Auto-Adaptive capacity is scanning for faces at 30.0 fps.'
+      headline: 'Scanning optical feed — awaiting participants in camera field of view.',
+      detail: 'Auto-Adaptive tracking is ready to measure eye closure, yawning kinematics, and head pose.'
     };
   }
 
-  const { id, mar = 0, ear = 0.3, pitch = 0, yaw = 0 } = primaryStudent;
+  const { id, mar = 0, ear = 0.28, pitch = 0, yaw = 0 } = primaryStudent;
 
-  // 1. Fatigue / Yawn Alert (Highest Priority)
+  // 1. Fatigue / Yawn Alert
   if (mar >= 0.60 || ear < 0.20) {
     return {
       severity: 'alert',
       headline: `Fatigue signature detected on Subject 0${id} (${mar >= 0.60 ? `MAR ${mar.toFixed(2)} yawn` : `EAR ${ear.toFixed(2)} closure`}).`,
-      detail: `Coincides with ${pitch.toFixed(1)}° head pitch (${focusDelta >= 0 ? '+' : ''}${focusDelta.toFixed(1)}% vs mean). Consider a quick concept check-in.`
+      detail: `Coincides with ${pitch.toFixed(1)}° head pitch (${focusDelta >= 0 ? '+' : ''}${focusDelta.toFixed(1)}% vs mean). Consider an interactive check-in.`
     };
   }
 
-  // 2. Desk Note-Taking vs. Distraction Distinction
+  // 2. Desk Note-Taking vs. Distraction
   if (pitch < -12 && mar < 0.45 && ear >= 0.20) {
     return {
       severity: 'warn',
@@ -522,7 +652,8 @@ function updateAIPulseCard() {
     focusDelta: delta,
     facingPct: engine.current.facing,
     primaryStudent: primary,
-    isDeskMode: deskExerciseMode
+    isDeskMode: deskExerciseMode,
+    hasData: engine.hasReceivedData && engine.target.students.length > 0
   });
 
   const card = document.getElementById('ai-pulse-card');
@@ -532,10 +663,9 @@ function updateAIPulseCard() {
   if (card && headline && detail) {
     card.className = `ai-pulse-card ${pulse.severity}`;
 
-    // Trigger subtle blur-dissolve animation
     headline.style.animation = 'none';
     detail.style.animation = 'none';
-    void headline.offsetWidth; // Force reflow
+    void headline.offsetWidth;
     void detail.offsetWidth;
     headline.style.animation = 'pulseTextReveal 320ms var(--ease-out-expo) forwards';
     detail.style.animation = 'pulseTextReveal 360ms var(--ease-out-expo) forwards';
@@ -546,11 +676,10 @@ function updateAIPulseCard() {
 }
 
 // ============================================================================
-// 5. 60/120FPS FAST ANIMATION LOOP (CANVAS & BAR RAF)
+// 6. 60/120FPS FAST ANIMATION LOOP (CANVAS & BAR RAF)
 // ============================================================================
 
 let gizmoCanvas = null;
-let reticleCanvas = null;
 
 function runAnimationFrameLoop(now) {
   const animState = engine.stepAnimation(now);
@@ -566,7 +695,7 @@ function runAnimationFrameLoop(now) {
   // 2. Dynamic Island Ring
   const islandRing = document.getElementById('island-ring-progress');
   if (islandRing) {
-    const circumference = 50.26; // 2 * pi * 8
+    const circumference = 50.26;
     const offset = circumference * (1 - Math.min(1, animState.gateProgress));
     islandRing.style.strokeDashoffset = offset.toFixed(2);
     if (animState.gateProgress > 0.6) {
@@ -589,11 +718,11 @@ function runAnimationFrameLoop(now) {
   if (barFacing) barFacing.style.transform = `scaleX(${(Math.max(0, Math.min(100, cur.facing)) / 100).toFixed(4)})`;
   if (barFatigue) barFatigue.style.transform = `scaleX(${(Math.max(0, Math.min(1.0, cur.mar)) / 1.0).toFixed(4)})`;
 
-  // 4. Update Student Row Sparklines and Ring Meters
+  // 4. Update Student Row Sparklines and Ring Meters (Real Students Only)
   engine.target.students.forEach(s => {
     const sparkCanvas = document.getElementById(`sparkline-canvas-${s.id}`);
     if (sparkCanvas) {
-      const ctx = configureRetinaCanvas(sparkCanvas, 138, 24);
+      const ctx = configureRetinaCanvas(sparkCanvas, 130, 22);
       const buffer = engine.studentSparklines[s.id];
       const isExceeded = s.mar > 0.60 || s.ear < 0.20;
       drawStudentSparkline(ctx, buffer, isExceeded);
@@ -601,7 +730,7 @@ function runAnimationFrameLoop(now) {
 
     const rowRing = document.getElementById(`ring-student-${s.id}`);
     if (rowRing) {
-      const circumference = 56.55; // 2 * pi * 9
+      const circumference = 56.55;
       const rowOffset = circumference * (1 - Math.min(1, animState.gateProgress));
       rowRing.style.strokeDashoffset = rowOffset.toFixed(2);
       rowRing.style.stroke = (s.mar > 0.60 || s.ear < 0.20) ? 'var(--signal-red)' : 'var(--signal-green)';
@@ -612,7 +741,7 @@ function runAnimationFrameLoop(now) {
 }
 
 // ============================================================================
-// 6. 4HZ (250MS) TABULAR DOM TEXT UPDATER
+// 7. 4HZ (250MS) TABULAR DOM TEXT UPDATER
 // ============================================================================
 
 function runTabularThrottle() {
@@ -620,6 +749,7 @@ function runTabularThrottle() {
   const target = engine.target;
   const mean = engine.sessionMean;
   const delta = cur.focus - mean;
+  const hasStudents = target.students.length > 0;
 
   // 1. Metric Ribbon Numerals
   const focusHero = document.getElementById('metric-focus-hero');
@@ -634,25 +764,35 @@ function runTabularThrottle() {
   const metaHysteresis = document.getElementById('meta-hysteresis-gate');
   const yawnDot = document.getElementById('yawn-dot');
 
-  if (focusHero) focusHero.textContent = `${cur.focus.toFixed(1)}%`;
-  if (meanHero) meanHero.textContent = `${mean.toFixed(1)}%`;
-  if (facingHero) facingHero.textContent = `${cur.facing.toFixed(1)}%`;
-  if (fatigueHero) fatigueHero.textContent = cur.mar.toFixed(2);
+  if (focusHero) focusHero.textContent = hasStudents ? `${cur.focus.toFixed(1)}%` : '--.-%';
+  if (meanHero) meanHero.textContent = (engine.frameCount > 0) ? `${mean.toFixed(1)}%` : '--.-%';
+  if (facingHero) facingHero.textContent = hasStudents ? `${cur.facing.toFixed(1)}%` : '--.-%';
+  if (fatigueHero) fatigueHero.textContent = hasStudents ? cur.mar.toFixed(2) : '0.00';
 
   if (focusDelta) {
-    const sign = delta >= 0 ? '+' : '';
-    focusDelta.textContent = `${sign}${delta.toFixed(1)}% vs mean`;
+    if (hasStudents && engine.frameCount > 0) {
+      const sign = delta >= 0 ? '+' : '';
+      focusDelta.textContent = `${sign}${delta.toFixed(1)}% vs mean`;
+    } else {
+      focusDelta.textContent = 'Awaiting lock';
+    }
   }
   if (focusDot) {
-    focusDot.className = `dot-indicator ${cur.focus >= 80 ? 'green' : 'amber'}`;
+    focusDot.className = `dot-indicator ${cur.focus >= 80 ? 'green' : (hasStudents ? 'amber' : 'green')}`;
   }
 
   if (metaCohort) {
-    metaCohort.textContent = `Cohort stable (${target.attentiveCount}/${target.activeCount || 1} Attentive)`;
+    if (hasStudents) {
+      metaCohort.textContent = `Cohort stable (${target.attentiveCount}/${target.activeCount} Attentive)`;
+    } else {
+      metaCohort.textContent = 'Scanning camera FOV';
+    }
   }
+
   if (metaPitch) {
-    metaPitch.textContent = `${cur.pitch >= 0 ? '+' : ''}${cur.pitch.toFixed(1)}° pitch`;
+    metaPitch.textContent = hasStudents ? `${cur.pitch >= 0 ? '+' : ''}${cur.pitch.toFixed(1)}° pitch` : '0.0° pitch';
   }
+
   if (metaYawn) {
     metaYawn.textContent = cur.mar > 0.60 ? 'MAR > 0.60 trigger' : (cur.ear < 0.20 ? 'EAR < 0.20 trigger' : 'Normal closure rate');
   }
@@ -672,23 +812,30 @@ function runTabularThrottle() {
 
   if (islandFps) islandFps.textContent = `LIVE ${engine.fpsEstimate.toFixed(1)} fps`;
   if (islandFocus) {
-    islandFocus.textContent = `${cur.focus.toFixed(1)}% Focus`;
-    islandFocus.style.color = cur.focus >= 80 ? 'var(--signal-green)' : 'var(--signal-amber)';
+    if (hasStudents) {
+      islandFocus.textContent = `${cur.focus.toFixed(1)}% Focus`;
+      islandFocus.style.color = cur.focus >= 80 ? 'var(--signal-green)' : 'var(--signal-amber)';
+    } else {
+      islandFocus.textContent = 'Awaiting Subject';
+      islandFocus.style.color = 'var(--ink-secondary)';
+    }
   }
   if (islandText) {
     if (engine.gateHoldMs > 100) {
       islandText.textContent = `Subject 0${selectedStudentId} · Gate ${(engine.gateHoldMs / 1000).toFixed(1)}s / 2.0s`;
     } else if (deskExerciseMode) {
       islandText.textContent = 'Desk Exercise Mode · Alerts Muted';
+    } else if (hasStudents) {
+      islandText.textContent = `Cohort Stable · ${target.activeCount}/${target.activeCount} Locked`;
     } else {
-      islandText.textContent = `Cohort Stable · ${target.activeCount || 1}/${target.activeCount || 1} Locked`;
+      islandText.textContent = 'Scanning Optical Field...';
     }
   }
 
   // 3. Optical Feed Readouts & Gizmo Readout
   const lockedCount = document.getElementById('feed-locked-count');
   if (lockedCount) {
-    lockedCount.textContent = `${target.activeCount || 1} subject(s) locked`;
+    lockedCount.textContent = `${target.activeCount} subject(s) locked`;
   }
 
   const pVal = document.getElementById('gizmo-pitch-val');
@@ -697,11 +844,7 @@ function runTabularThrottle() {
 
   if (pVal) {
     pVal.textContent = `P: ${cur.pitch >= 0 ? '+' : ''}${cur.pitch.toFixed(1)}°`;
-    if (cur.pitch < -12) {
-      pVal.className = 'mono tabular-nums gizmo-angle-row pitch alert';
-    } else {
-      pVal.className = 'mono tabular-nums gizmo-angle-row pitch';
-    }
+    pVal.className = cur.pitch < -12 ? 'mono tabular-nums gizmo-angle-row pitch alert' : 'mono tabular-nums gizmo-angle-row pitch';
   }
   if (yVal) yVal.textContent = `Y: ${cur.yaw >= 0 ? '+' : ''}${cur.yaw.toFixed(1)}°`;
   if (rVal) rVal.textContent = `R: ${cur.roll >= 0 ? '+' : ''}${cur.roll.toFixed(1)}°`;
@@ -712,17 +855,20 @@ function runTabularThrottle() {
   const legFacing = document.getElementById('leg-facing');
   const legMar = document.getElementById('leg-mar');
 
-  if (legFocus) legFocus.textContent = `${cur.focus.toFixed(1)}%`;
-  if (legMean) legMean.textContent = `${mean.toFixed(1)}%`;
-  if (legFacing) legFacing.textContent = `${cur.facing.toFixed(1)}%`;
-  if (legMar) legMar.textContent = cur.mar.toFixed(2);
+  if (legFocus) legFocus.textContent = hasStudents ? `${cur.focus.toFixed(1)}%` : '--.-%';
+  if (legMean) legMean.textContent = (engine.frameCount > 0) ? `${mean.toFixed(1)}%` : '--.-%';
+  if (legFacing) legFacing.textContent = hasStudents ? `${cur.facing.toFixed(1)}%` : '--.-%';
+  if (legMar) legMar.textContent = hasStudents ? cur.mar.toFixed(2) : '0.00';
 
-  // 5. Render Biometric Ledger Table
+  // 5. Render Biometric Ledger Table (REAL PARTICIPANTS ONLY)
   renderBiometricLedgerTable(target.students);
+
+  // 6. Update Dynamic Syllabus Phase Times
+  updateSyllabusPhases();
 }
 
 // ============================================================================
-// 7. PARTICIPANT BIOMETRIC LEDGER TABLE RENDERER
+// 8. PARTICIPANT BIOMETRIC LEDGER TABLE RENDERER (NO FAKE ROWS)
 // ============================================================================
 
 function renderBiometricLedgerTable(students) {
@@ -730,39 +876,39 @@ function renderBiometricLedgerTable(students) {
   const slotsLabel = document.getElementById('ledger-active-slots');
   if (!tbody) return;
 
-  const activeList = (students && students.length > 0) ? students : [
-    {
-      id: 1,
-      score: 68.0,
-      ear: 0.29,
-      mar: 0.07,
-      yaw: 14.2,
-      pitch: -18.4,
-      status: 'Attentive',
-      active: true
-    }
-  ];
-
-  if (slotsLabel) {
-    const totalSlots = 30;
-    const lockedCount = activeList.length;
-    slotsLabel.textContent = `${lockedCount} locked · ${Math.max(0, totalSlots - lockedCount)} standby slots`;
+  if (!students || students.length === 0) {
+    if (slotsLabel) slotsLabel.textContent = '0 participants locked · waiting for camera detection';
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="padding: 28px 16px; text-align: center;">
+          <div class="empty-roster-wrap">
+            <div class="empty-icon-ring">🔍</div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--ink-primary); margin-bottom: 3px;">Awaiting Participants in Camera Field of View</div>
+            <div style="font-size: 11.5px; color: var(--ink-secondary);">Sit in front of the camera or frame classroom seats to begin real-time telemetry analysis.</div>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
   }
 
-  // Build active rows
+  if (slotsLabel) {
+    slotsLabel.textContent = `${students.length} participant(s) locked · continuous telemetry active`;
+  }
+
   let rowsHtml = '';
-  activeList.forEach(student => {
+  students.forEach(student => {
     const isSelected = student.id === selectedStudentId;
-    const earVal = Number(student.ear || 0.29);
-    const marVal = Number(student.mar || 0.07);
-    const focusVal = Number(student.score || 100);
+    const earVal = Number(student.ear || 0.28);
+    const marVal = Number(student.mar || 0.08);
+    const focusVal = Number(student.score || 0);
     const yawVal = Number(student.yaw || 0);
     const pitchVal = Number(student.pitch || 0);
+    const position = student.position || 'Center';
 
     const isEarAlert = earVal < 0.20;
     const isMarAlert = marVal > 0.60;
 
-    // Posture state text
     let postureTitle = 'Attentive';
     let postureSub = 'Within normal cone';
     if (isMarAlert) {
@@ -779,7 +925,6 @@ function renderBiometricLedgerTable(students) {
       postureSub = `${yawVal.toFixed(1)}° yaw`;
     }
 
-    // EAR & MAR Bar calculations
     const earScale = Math.min(1.0, Math.max(0.0, earVal / 0.40)).toFixed(3);
     const marScale = Math.min(1.0, Math.max(0.0, marVal / 1.00)).toFixed(3);
     const focusScale = (Math.min(100, Math.max(0, focusVal)) / 100).toFixed(3);
@@ -792,7 +937,7 @@ function renderBiometricLedgerTable(students) {
             <div class="participant-avatar-badge mono">0${student.id}</div>
             <div class="participant-info">
               <span class="participant-name">Student #${student.id}</span>
-              <span class="participant-sub">Front-Center · Locked</span>
+              <span class="participant-sub">${position} · Locked</span>
             </div>
           </div>
         </td>
@@ -815,10 +960,10 @@ function renderBiometricLedgerTable(students) {
         <td>
           <div class="meter-cell-group">
             <div class="meter-cell-readout">
-              <span class="mono tabular-nums font-semibold" style="font-size: 14px;">${focusVal.toFixed(1)}%</span>
-              <span style="font-size: 11px; color: var(--ink-tertiary);">Tabular</span>
+              <span class="mono tabular-nums font-semibold" style="font-size: 13.5px;">${focusVal.toFixed(1)}%</span>
+              <span style="font-size: 10.5px; color: var(--ink-tertiary);">Tabular</span>
             </div>
-            <div class="ratio-track-with-tick" style="width: 130px;">
+            <div class="ratio-track-with-tick">
               <div class="ratio-track-fill" style="transform: scaleX(${focusScale}); background-color: var(--ink-primary);"></div>
             </div>
           </div>
@@ -828,8 +973,8 @@ function renderBiometricLedgerTable(students) {
         <td>
           <div class="meter-cell-group">
             <div class="meter-cell-readout">
-              <span class="mono tabular-nums font-semibold" style="font-size: 14px; color: ${isEarAlert ? 'var(--signal-red)' : 'var(--ink-primary)'}">${earVal.toFixed(2)}</span>
-              <span style="font-size: 11px; color: ${isEarAlert ? 'var(--signal-red)' : 'var(--ink-secondary)'}">${isEarAlert ? 'Closure Alert' : 'Normal'}</span>
+              <span class="mono tabular-nums font-semibold" style="font-size: 13.5px; color: ${isEarAlert ? 'var(--signal-red)' : 'var(--ink-primary)'}">${earVal.toFixed(2)}</span>
+              <span style="font-size: 10.5px; color: ${isEarAlert ? 'var(--signal-red)' : 'var(--ink-secondary)'}">${isEarAlert ? 'Closure Alert' : 'Normal'}</span>
             </div>
             <div class="ratio-track-with-tick">
               <div class="ratio-track-fill" style="transform: scaleX(${earScale}); background-color: ${isEarAlert ? 'var(--signal-red)' : 'var(--ink-primary)'};"></div>
@@ -843,8 +988,8 @@ function renderBiometricLedgerTable(students) {
           <div class="meter-cell-group">
             <div class="meter-cell-readout">
               <span class="dot-indicator ${isMarAlert ? 'red' : 'green'}"></span>
-              <span class="mono tabular-nums font-semibold" style="font-size: 14px; color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-primary)'}">${marVal.toFixed(2)}</span>
-              <span style="font-size: 11px; color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-secondary)'}">${isMarAlert ? '> 0.60 Max' : 'Normal'}</span>
+              <span class="mono tabular-nums font-semibold" style="font-size: 13.5px; color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-primary)'}">${marVal.toFixed(2)}</span>
+              <span style="font-size: 10.5px; color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-secondary)'}">${isMarAlert ? '> 0.60 Max' : 'Normal'}</span>
             </div>
             <div class="ratio-track-with-tick">
               <div class="ratio-track-fill" style="transform: scaleX(${marScale}); background-color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-primary)'};"></div>
@@ -857,48 +1002,12 @@ function renderBiometricLedgerTable(students) {
         <td>
           <div class="sparkline-box">
             <span class="sparkline-micro-tag mono">Yaw ${yawVal >= 0 ? '+' : ''}${yawVal.toFixed(0)}° · Pitch ${pitchVal >= 0 ? '+' : ''}${pitchVal.toFixed(0)}°</span>
-            <canvas id="sparkline-canvas-${student.id}" class="sparkline-canvas" width="138" height="24"></canvas>
+            <canvas id="sparkline-canvas-${student.id}" class="sparkline-canvas" width="130" height="22"></canvas>
           </div>
         </td>
       </tr>
     `;
   });
-
-  // Standby rows to maintain structural Swiss table layout
-  rowsHtml += `
-    <tr class="standby-row">
-      <td>
-        <div class="participant-cell">
-          <div class="participant-avatar-badge standby mono">02</div>
-          <div class="participant-info">
-            <span class="participant-name">Seat 02</span>
-            <span class="participant-sub">Front-Left</span>
-          </div>
-        </div>
-      </td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">Awaiting optical lock</span></td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">—</span></td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">—</span></td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">—</span></td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">—</span></td>
-    </tr>
-    <tr class="standby-row">
-      <td>
-        <div class="participant-cell">
-          <div class="participant-avatar-badge standby mono">03</div>
-          <div class="participant-info">
-            <span class="participant-name">Seat 03</span>
-            <span class="participant-sub">Front-Right</span>
-          </div>
-        </div>
-      </td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">Awaiting optical lock</span></td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">—</span></td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">—</span></td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">—</span></td>
-      <td><span class="mono" style="font-size: 12px; color: var(--ink-tertiary);">—</span></td>
-    </tr>
-  `;
 
   tbody.innerHTML = rowsHtml;
 }
@@ -908,17 +1017,18 @@ window.selectParticipant = function(id) {
   selectedStudentId = id;
   const primary = engine.target.students.find(s => s.id === id);
   if (primary) {
-    engine.target.ear = Number(primary.ear ?? 0.29);
-    engine.target.mar = Number(primary.mar ?? 0.07);
+    engine.target.ear = Number(primary.ear ?? 0.28);
+    engine.target.mar = Number(primary.mar ?? 0.08);
     engine.target.yaw = Number(primary.yaw ?? 0);
     engine.target.pitch = Number(primary.pitch ?? 0);
+    engine.target.roll = Number(primary.roll ?? 0);
   }
   showToast(`Subject 0${id} Isolated in 3D Pose Gizmo`);
   logIncident(`Subject 0${id} spotlighted for telemetry inspection`, 'blue');
 };
 
 // ============================================================================
-// 8. TELEMETRY EVENT STREAM & LOGGING
+// 9. TELEMETRY EVENT STREAM & LOGGING (24-HR TIMESTAMPS NO WRAP)
 // ============================================================================
 
 function logIncident(text, type = 'green', techContext = '') {
@@ -928,7 +1038,8 @@ function logIncident(text, type = 'green', techContext = '') {
   const row = document.createElement('div');
   row.className = 'telemetry-event-row';
 
-  const timeStr = new Date().toLocaleTimeString();
+  // Clean 24-hr timestamp: HH:MM:SS
+  const timeStr = new Date().toTimeString().split(' ')[0];
   row.innerHTML = `
     <span class="event-time-stamp mono tabular-nums">${timeStr}</span>
     <div class="event-hollow-node ${type}"></div>
@@ -961,7 +1072,7 @@ function showToast(msg, icon = '🎯') {
 }
 
 // ============================================================================
-// 9. INTERACTIVE ACTION HANDLERS & CSV EXPORT
+// 10. INTERACTIVE ACTION HANDLERS & CSV EXPORT
 // ============================================================================
 
 function initActionHandlers() {
@@ -973,7 +1084,7 @@ function initActionHandlers() {
         .then(res => res.json())
         .then(() => {
           showToast('Camera Calibrated! Normal posture set to Forward Facing.');
-          logIncident('Head pose baseline auto-calibrated to current posture', 'blue', 'Laptop screen tilt offset zeroed');
+          logIncident('Head pose baseline auto-calibrated to current posture', 'blue', 'Screen tilt zeroed');
         })
         .catch(() => {
           showToast('Calibration failed. Ensure face is in camera view.', '⚠️');
@@ -1007,7 +1118,10 @@ function initActionHandlers() {
 
       const maxId = Math.max(maxSessionStudents, 1);
       let csvContent = "data:text/csv;charset=utf-8,";
-      let headers = ["Timestamp", "Overall_Score", "Active_Count", "Attentive_Count", "Facing_Pct", "Sleep_Pct", "Yawn_Pct"];
+      let headers = [
+        "Timestamp", "Course", "Room", "Overall_Score", "Active_Count",
+        "Attentive_Count", "Facing_Pct", "Sleep_Pct", "Yawn_Pct"
+      ];
       for (let i = 1; i <= maxId; i++) {
         headers.push(`S${i}_Score`, `S${i}_Status`, `S${i}_EAR`, `S${i}_MAR`, `S${i}_Pitch`, `S${i}_Yaw`);
       }
@@ -1024,7 +1138,15 @@ function initActionHandlers() {
           }
         }
         const row = [
-          entry.timestamp, entry.overall, entry.count, entry.attentive, entry.facing, entry.sleep, entry.yawn,
+          entry.timestamp,
+          `"${sessionConfig.className || 'CAMS'}"`,
+          `"${sessionConfig.room || 'Hall'}"`,
+          entry.overall,
+          entry.count,
+          entry.attentive,
+          entry.facing,
+          entry.sleep,
+          entry.yawn,
           ...sCols
         ].join(",");
         csvContent += row + "\n";
@@ -1033,7 +1155,7 @@ function initActionHandlers() {
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `cams_studio_telemetry_${Date.now()}.csv`);
+      link.setAttribute("download", `cams_${(sessionConfig.className || 'session').toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1066,16 +1188,16 @@ function initActionHandlers() {
       const cur = engine.current;
       const mean = engine.sessionMean;
       const delta = cur.focus - mean;
-      const primary = engine.target.students.find(s => s.id === selectedStudentId) || engine.target.students[0];
       const pitch = cur.pitch.toFixed(1);
       const yaw = cur.yaw.toFixed(1);
 
       const briefText = [
-        `CAMS Session Brief — CS-301 Algorithms (Lecture Hall 204)`,
+        `CAMS Session Brief — ${sessionConfig.className || 'Classroom Session'} (${sessionConfig.room || 'Hall'})`,
+        `• Instructor: ${sessionConfig.instructor || 'Unspecified'} | Topic: ${sessionConfig.topic || 'General Lecture'}`,
         `• Rolling Mean Focus: ${mean.toFixed(1)}% | Instantaneous Focus: ${cur.focus.toFixed(1)}% (${delta >= 0 ? '+' : ''}${delta.toFixed(1)}% vs mean)`,
         `• Board Alignment: ${cur.facing.toFixed(1)}% | Active Pose: Pitch ${pitch}°, Yaw ${yaw}°`,
         `• Peak Fatigue Vector: MAR ${cur.mar.toFixed(2)} | EAR ${cur.ear.toFixed(2)} (Gate: ${(engine.gateHoldMs / 1000).toFixed(1)}s / 2.0s)`,
-        `• AI Takeaway: ${document.getElementById('ai-pulse-headline')?.textContent || 'Cohort stable'}`
+        `• AI Pedagogical Takeaway: ${document.getElementById('ai-pulse-headline')?.textContent || 'Cohort stable'}`
       ].join("\n");
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1120,7 +1242,7 @@ function initActionHandlers() {
 }
 
 // ============================================================================
-// 10. WEBSOCKET & REST TELEMETRY INGESTION
+// 11. WEBSOCKET & REST TELEMETRY INGESTION
 // ============================================================================
 
 let socket = null;
@@ -1128,7 +1250,7 @@ let reconnectTimer = null;
 
 function handleTelemetryPayload(payload) {
   const chartData = payload.chart || payload;
-  const timestamp = chartData.timestamp || new Date().toLocaleTimeString();
+  const timestamp = chartData.timestamp || new Date().toTimeString().split(' ')[0];
 
   engine.ingestPacket(payload);
 
@@ -1197,7 +1319,7 @@ function connectWebSocket() {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
-      logIncident('Live WebSocket telemetry stream connected', 'blue', 'Sub-millisecond binary packet stream active');
+      logIncident('Live WebSocket telemetry stream connected', 'blue', 'Sub-millisecond packet stream active');
     };
 
     socket.onmessage = function(event) {
@@ -1232,7 +1354,7 @@ function scheduleReconnect() {
   }
 }
 
-// Fallback REST polling
+// REST fallback polling
 setInterval(() => {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     fetch('/api/data')
@@ -1247,29 +1369,18 @@ setInterval(() => {
 }, 2000);
 
 // ============================================================================
-// 11. INITIALIZATION & SCHEDULER START
+// 12. INITIALIZATION & SCHEDULER START
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
   gizmoCanvas = document.getElementById('gizmo-canvas');
-  reticleCanvas = document.getElementById('video-reticle-canvas');
 
+  initSessionSetup();
   initMasterChart();
   initActionHandlers();
 
-  // Populate initial table layout
-  renderBiometricLedgerTable([
-    {
-      id: 1,
-      score: 68.0,
-      ear: 0.29,
-      mar: 0.07,
-      yaw: 14.2,
-      pitch: -18.4,
-      status: 'Attentive',
-      active: true
-    }
-  ]);
+  // Populate initial empty or detected table
+  renderBiometricLedgerTable([]);
 
   // Start Two-Speed Schedulers
   // 1. Fast 60/120fps rAF Loop
@@ -1280,7 +1391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 3. AI Lecture Pulse Debounced Evaluator (every 10s)
   setInterval(updateAIPulseCard, 10000);
-  updateAIPulseCard(); // Initial invocation
+  updateAIPulseCard();
 
   // Connect Telemetry
   connectWebSocket();

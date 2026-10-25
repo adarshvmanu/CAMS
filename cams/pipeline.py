@@ -132,6 +132,4 @@ class CAMSPipeline:
                         matched_det["cam_matrix"], matched_det["dist_matrix"]
                     )
 
-            render_top_bar(image, self.fps, summary["count"], summary["overall_score"])
-
         return image, summary, self.fps

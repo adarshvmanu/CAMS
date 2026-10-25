@@ -123,6 +123,13 @@ class StudentTrack:
         )
 
     def to_dict(self):
+        cx, cy = (round(self.centroid[0], 3), round(self.centroid[1], 3)) if self.centroid else (0.5, 0.5)
+        pos = "Center"
+        if cx < 0.35:
+            pos = "Left"
+        elif cx > 0.65:
+            pos = "Right"
+
         return {
             "id": self.student_id,
             "score": round(self.ema_score, 1),
@@ -130,8 +137,12 @@ class StudentTrack:
             "mar": round(self.mar, 2),
             "yaw": round(self.yaw, 1),
             "pitch": round(self.pitch, 1),
+            "roll": round(self.roll, 1),
             "status": self.status,
-            "active": self.is_active
+            "direction": self.direction,
+            "active": self.is_active,
+            "centroid": [cx, cy],
+            "position": pos
         }
 
 
