@@ -30,27 +30,26 @@ The system extracts 468 facial landmarks via Google MediaPipe FaceMesh (CPU-opti
 
 ---
 
-## 2. Quick Start
+## 2. Quick Start & System Controller
 
-### Prerequisites
-- Python 3.10, 3.11, or 3.12
-- macOS, Linux, or Windows
+CAMS includes a unified, single-file cross-platform controller (`cams.py`) that operates identically on macOS, Windows, and Linux.
 
-### macOS / Linux:
+### Cross-Platform Controller (`cams.py`)
 ```bash
-./start.sh
+python cams.py start      # Boot up entire system in background & open browser
+python cams.py stop       # Clean-kill all CAMS processes & release camera sensor
+python cams.py restart    # Graceful stop followed by clean restart
+python cams.py status     # Inspect live status, PID, port, uptime, and health API
+python cams.py run        # Run in foreground with live terminal output
 ```
 
-### Windows:
-Double-click `start.bat` or run:
-```cmd
-start.bat
-```
+### OS-Native Launchers
+- **macOS / Linux:** `./start.sh` (supports arguments like `./start.sh stop`, `./start.sh restart`)
+- **Windows:** Double-click `start.bat` or run `start.bat stop` in Command Prompt.
 
-### Custom Run Arguments:
-- Run with a specific camera index: `./start.sh 1`
-- Run with a prerecorded video file: `./start.sh classroom_video.mp4`
-- Run headless (no desktop window popup): `./start.sh --no-display`
+### Custom Video Sources
+- Run with camera index 1: `python cams.py start 1`
+- Run with prerecorded lecture file: `python cams.py start /path/to/lecture.mp4`
 
 ---
 
