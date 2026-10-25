@@ -337,12 +337,27 @@ def main():
     t = threading.Thread(target=vision_pipeline_thread, args=(video_source,), daemon=True)
     t.start()
 
-    server = ThreadedHTTPServer(("0.0.0.0", PORT), CAMSUnifiedHandler)
+    server = None
+    active_port = PORT
+    for p in range(PORT, PORT + 20):
+        try:
+            server = ThreadedHTTPServer(("0.0.0.0", p), CAMSUnifiedHandler)
+            active_port = p
+            break
+        except OSError as e:
+            if getattr(e, "errno", None) in (48, 98):  # 48 Mac, 98 Linux
+                continue
+            raise
+
+    if server is None:
+        print(f"Error: Could not bind to any port from {PORT} to {PORT + 20}")
+        return
+
     print(f"\n=======================================================")
     print(f"  CAMS Studio Unified Live Engine Active")
-    print(f"  Web Dashboard:   http://localhost:{PORT}")
-    print(f"  Live Video Feed: http://localhost:{PORT}/video_feed")
-    print(f"  Telemetry WS:    ws://localhost:{PORT}")
+    print(f"  Web Dashboard:   http://localhost:{active_port}")
+    print(f"  Live Video Feed: http://localhost:{active_port}/video_feed")
+    print(f"  Telemetry WS:    ws://localhost:{active_port}")
     print(f"=======================================================\n")
 
     try:

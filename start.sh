@@ -37,8 +37,13 @@ if [ -f "requirements.txt" ]; then
     "$VENV_PIP" install -q -r requirements.txt
 fi
 
-DASHBOARD_URL="http://localhost:3000"
+PORT="${PORT:-3000}"
+if command -v lsof >/dev/null 2>&1 && lsof -i :"$PORT" >/dev/null 2>&1; then
+    PORT=3001
+fi
+export PORT
+DASHBOARD_URL="http://localhost:$PORT"
 (sleep 1.5 && (open "$DASHBOARD_URL" 2>/dev/null || xdg-open "$DASHBOARD_URL" 2>/dev/null || true)) &
 
-echo "Starting unified CAMS Studio live engine..."
+echo "Starting unified CAMS Studio live engine on port $PORT..."
 exec "$VENV_PYTHON" server.py "$@"
