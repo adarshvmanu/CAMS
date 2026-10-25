@@ -1513,6 +1513,154 @@ html, body {
   background: #ECECEE;
 }
 
+/* ----------------------------------------------------
+   CINEMATIC BOOTUP SCREEN (THE AWAKENING EYE)
+---------------------------------------------------- */
+.cams-bootloader-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: #0B0C10;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 450ms var(--ease-out-expo),
+              transform 450ms var(--ease-out-expo),
+              visibility 450ms ease;
+  overflow: hidden;
+}
+
+.cams-bootloader-overlay.dismissed {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.bootloader-ambient-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 113, 227, 0.16) 0%, rgba(48, 209, 88, 0.05) 45%, transparent 70%);
+  pointer-events: none;
+  filter: blur(50px);
+  animation: ambientBreathe 3.6s infinite ease-in-out;
+}
+
+@keyframes ambientBreathe {
+  0%, 100% { transform: scale(0.92); opacity: 0.6; }
+  50% { transform: scale(1.12); opacity: 0.95; }
+}
+
+.btn-skip-boot {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #A1A1AA;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 180ms ease;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
+.btn-skip-boot:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.boot-eye-container {
+  width: 240px;
+  height: 140px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.boot-eye-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.constellation-group {
+  opacity: 0.75;
+  transition: opacity 300ms ease;
+}
+
+.mesh-node {
+  fill: #38BDF8;
+  transition: r 200ms ease;
+}
+
+.mesh-filament {
+  stroke: rgba(56, 189, 248, 0.22);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 2;
+}
+
+.boot-console-wrap {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 2;
+}
+
+.boot-brand-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #FFFFFF;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.boot-brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: #71717A;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+
+.boot-progress-track {
+  width: 240px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.boot-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #0071E3, #30D158);
+  border-radius: 9999px;
+  transition: width 100ms linear;
+  box-shadow: 0 0 10px rgba(0, 113, 227, 0.7);
+}
+
+.boot-log-text {
+  font-size: 11px;
+  color: #A1A1AA;
+  min-height: 18px;
+  letter-spacing: 0.02em;
+}
+
 /* Secondary Views & Toast */
 @keyframes viewFadeIn {
   0% { opacity: 0; transform: translateY(4px); }

@@ -17,6 +17,125 @@ let sessionConfig = {
   startTime: Date.now()
 };
 
+let bootloaderRunning = false;
+let bootAnimationId = null;
+
+function runBootloaderSequence(force = false) {
+  const overlay = document.getElementById('bootloader-overlay');
+  if (!overlay) return;
+
+  const alreadyShown = sessionStorage.getItem('cams_bootloader_completed');
+  if (alreadyShown && !force) {
+    overlay.classList.add('dismissed');
+    return;
+  }
+
+  overlay.classList.remove('dismissed');
+  bootloaderRunning = true;
+
+  const topPath = document.getElementById('eyelid-top-path');
+  const botPath = document.getElementById('eyelid-bottom-path');
+  const clipShape = document.getElementById('eye-clip-shape');
+  const radarLine = document.getElementById('radar-sweep-line');
+  const progressBar = document.getElementById('boot-progress-bar');
+  const logText = document.getElementById('boot-log-text');
+  const pupil = document.getElementById('boot-pupil');
+  const constellation = document.getElementById('constellation-group');
+
+  const BOOT_DURATION = 1600; // 1.6s smooth wake sequence
+  const startTime = performance.now();
+
+  const bootStages = [
+    { p: 0.18, text: '[0.06s] GPU / Metal Hardware Acceleration: Online' },
+    { p: 0.38, text: '[0.18s] MediaPipe 468-Point Anthropometric Model: Loaded' },
+    { p: 0.62, text: '[0.32s] Perspective-n-Point 3D Head-Pose Geometry: Calibrated' },
+    { p: 0.82, text: '[0.48s] Ocular Aspect Ratio (EAR) Dynamic Baseline: Armed' },
+    { p: 0.96, text: '[0.70s] High-Frequency Telemetry In-Memory Stream: Synchronized' },
+    { p: 1.00, text: 'OPTICAL LOCK CONFIRMED · LAUNCHING STUDIO' }
+  ];
+
+  function animateBoot(now) {
+    if (!bootloaderRunning) return;
+
+    const elapsed = now - startTime;
+    const progress = Math.min(1.0, elapsed / BOOT_DURATION);
+
+    // Easing for eye opening: starts closed (Y=70), smoothly curves open (Y=20 for top, Y=120 for bottom)
+    const eyeOpenFactor = Math.min(1.0, Math.max(0, (progress - 0.10) / 0.72));
+    const easedOpen = 1 - Math.pow(1 - eyeOpenFactor, 3); // cubic ease-out
+
+    const topY = 70 - easedOpen * 50;  // 70 -> 20
+    const botY = 70 + easedOpen * 50;  // 70 -> 120
+
+    if (topPath) topPath.setAttribute('d', `M 20,70 Q 120,${topY.toFixed(1)} 220,70`);
+    if (botPath) botPath.setAttribute('d', `M 20,70 Q 120,${botY.toFixed(1)} 220,70`);
+    if (clipShape) {
+      clipShape.setAttribute('d', `M 20,70 Q 120,${topY.toFixed(1)} 220,70 Q 120,${botY.toFixed(1)} 20,70 Z`);
+    }
+
+    // Rotate Radar Line inside iris
+    if (radarLine) {
+      const angle = (now * 0.45) % 360;
+      const rad = (angle * Math.PI) / 180;
+      const rx = 120 + 32 * Math.cos(rad);
+      const ry = 70 + 32 * Math.sin(rad);
+      radarLine.setAttribute('x2', rx.toFixed(1));
+      radarLine.setAttribute('y2', ry.toFixed(1));
+    }
+
+    // Subtle pupil dilation
+    if (pupil) {
+      const pupilR = 9 + Math.sin(now * 0.008) * 1.5 + (easedOpen * 1.5);
+      pupil.setAttribute('r', pupilR.toFixed(1));
+    }
+
+    // Constellation mesh pulse
+    if (constellation) {
+      constellation.style.opacity = (0.2 + easedOpen * 0.75).toFixed(2);
+    }
+
+    // Progress bar and stage logs
+    if (progressBar) {
+      progressBar.style.width = `${(progress * 100).toFixed(0)}%`;
+    }
+
+    if (logText) {
+      for (const stage of bootStages) {
+        if (progress <= stage.p) {
+          logText.textContent = stage.text;
+          break;
+        }
+      }
+    }
+
+    if (progress < 1.0) {
+      bootAnimationId = requestAnimationFrame(animateBoot);
+    } else {
+      finishBootloader();
+    }
+  }
+
+  function finishBootloader() {
+    bootloaderRunning = false;
+    if (logText) logText.textContent = 'OPTICAL LOCK CONFIRMED · LAUNCHING STUDIO';
+    if (progressBar) progressBar.style.width = '100%';
+
+    setTimeout(() => {
+      overlay.classList.add('dismissed');
+      sessionStorage.setItem('cams_bootloader_completed', 'true');
+    }, 250);
+  }
+
+  window.skipBootloader = finishBootloader;
+
+  const btnSkip = document.getElementById('btn-skip-boot');
+  if (btnSkip) {
+    btnSkip.onclick = finishBootloader;
+  }
+
+  bootAnimationId = requestAnimationFrame(animateBoot);
+}
+
 function loadSessionConfig() {
   try {
     const saved = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -80,9 +199,9 @@ function closeSessionModal() {
 function initSessionSetup() {
   const hasConfig = loadSessionConfig();
 
-  // If no session config exists, prompt user immediately on initial boot
+  // If no session config exists, prompt user after boot sequence completes
   if (!hasConfig || !sessionConfig.className) {
-    setTimeout(() => openSessionModal(false), 200);
+    setTimeout(() => openSessionModal(false), 1750);
   }
 
   // Edit button in header
@@ -91,9 +210,10 @@ function initSessionSetup() {
     btnEdit.addEventListener('click', () => openSessionModal(true));
   }
 
+  // Click on Brand Emblem replays the awakening eye bootloader sequence
   const brandBtn = document.getElementById('brand-emblem-btn');
   if (brandBtn) {
-    brandBtn.addEventListener('click', () => openSessionModal(true));
+    brandBtn.addEventListener('click', () => runBootloaderSequence(true));
   }
 
   // Cancel button
@@ -177,7 +297,7 @@ function configureRetinaCanvas(canvas, cssWidth, cssHeight) {
 }
 
 // 3D Axial Head-Pose Wireframe Sphere
-function draw3DPoseSphere(ctx, yawDeg, pitchDeg, isAlert = false) {
+function draw3DPoseSphere(ctx, yawDeg, pitchDeg, isAlert = false, rollDeg = 0) {
   const W = 68;
   const H = 68;
   const cx = W / 2;
@@ -193,16 +313,21 @@ function draw3DPoseSphere(ctx, yawDeg, pitchDeg, isAlert = false) {
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.stroke();
 
-  // 2. Equator & Meridian Ellipses
-  ctx.strokeStyle = 'rgba(161, 161, 170, 0.30)';
+  // 2. Equator & Meridian Ellipses with 3D Roll Rotation
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((rollDeg * Math.PI) / 180);
+
+  ctx.strokeStyle = 'rgba(161, 161, 170, 0.32)';
   ctx.lineWidth = 1.0;
   ctx.beginPath();
-  ctx.ellipse(cx, cy, r, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, r, 9, 0, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.ellipse(cx, cy, 9, r, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, 9, r, 0, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.restore();
 
   // 3. Project 3D Head Normal Vector from Yaw & Pitch
   const radYaw = (yawDeg * Math.PI) / 180;
@@ -298,7 +423,10 @@ class TwoSpeedTelemetryEngine {
     const students = chart.students || [];
 
     const focusVal = Number(chart.overall_score ?? packet.classAttention ?? 0);
-    const facingVal = Number(chart.facing_classroom ?? packet.facingBoardPct ?? 0);
+    const rawFacing = Number(chart.facing_classroom ?? packet.facingBoardPct ?? 0);
+    if (this.smoothedFacing === undefined) this.smoothedFacing = rawFacing;
+    this.smoothedFacing = this.smoothedFacing * 0.70 + rawFacing * 0.30;
+    const facingVal = this.smoothedFacing;
     const countVal = Number(chart.count ?? packet.totalStudents ?? students.length);
     const attentiveVal = Number(chart.attention_count ?? packet.attentiveCount ?? 0);
     const sleepVal = Number(chart.sleep_detected ?? packet.drowsyPct ?? 0);
@@ -675,7 +803,7 @@ function runAnimationFrameLoop(now) {
   if (layerState.gizmo && gizmoCanvas) {
     const isAlert = Math.abs(cur.pitch) > 15 || Math.abs(cur.yaw) > 20;
     const ctx = configureRetinaCanvas(gizmoCanvas, 68, 68);
-    draw3DPoseSphere(ctx, cur.yaw, cur.pitch, isAlert);
+    draw3DPoseSphere(ctx, cur.yaw, cur.pitch, isAlert, cur.roll || 0);
   }
 
   // 2. Dynamic Island Ring
@@ -753,7 +881,21 @@ function runTabularThrottle() {
   if (focusHero) focusHero.textContent = hasStudents ? `${cur.focus.toFixed(1)}%` : '--.-%';
   if (meanHero) meanHero.textContent = (engine.frameCount > 0) ? `${mean.toFixed(1)}%` : '--.-%';
   if (facingHero) facingHero.textContent = hasStudents ? `${cur.facing.toFixed(1)}%` : '--.-%';
-  if (fatigueHero) fatigueHero.textContent = hasStudents ? cur.mar.toFixed(2) : '0.00';
+  if (fatigueHero) {
+    if (!hasStudents) {
+      fatigueHero.textContent = '0.00';
+      fatigueHero.style.color = 'var(--ink-primary)';
+    } else if (cur.ear < 0.20) {
+      fatigueHero.textContent = `${cur.ear.toFixed(2)} EAR`;
+      fatigueHero.style.color = 'var(--signal-red)';
+    } else if (cur.mar > 0.60) {
+      fatigueHero.textContent = `${cur.mar.toFixed(2)} MAR`;
+      fatigueHero.style.color = 'var(--signal-red)';
+    } else {
+      fatigueHero.textContent = `${cur.mar.toFixed(2)} MAR`;
+      fatigueHero.style.color = 'var(--ink-primary)';
+    }
+  }
 
   if (focusDelta) {
     if (hasStudents && engine.frameCount > 0) {
@@ -780,7 +922,15 @@ function runTabularThrottle() {
   }
 
   if (metaYawn) {
-    metaYawn.textContent = cur.mar > 0.60 ? 'MAR > 0.60 trigger' : (cur.ear < 0.20 ? 'EAR < 0.20 trigger' : 'Normal closure rate');
+    if (!hasStudents) {
+      metaYawn.textContent = 'Awaiting subjects';
+    } else if (cur.ear < 0.20) {
+      metaYawn.textContent = 'Ocular closure alert (Drowsy)';
+    } else if (cur.mar > 0.60) {
+      metaYawn.textContent = 'MAR > 0.60 yawn trigger';
+    } else {
+      metaYawn.textContent = 'Normal closure rate (Attentive)';
+    }
   }
   if (yawnDot) {
     yawnDot.className = `dot-indicator ${cur.mar > 0.60 || cur.ear < 0.20 ? 'red' : 'green'}`;
@@ -1252,10 +1402,10 @@ function handleTelemetryPayload(payload) {
     if (s.id > maxSessionStudents) maxSessionStudents = s.id;
   });
 
-  // Push into Chart.js
+  // Push into Chart.js (with smooth facing curve)
   const peakMar = students.length > 0 ? Math.max(...students.map(s => Number(s.mar || 0))) : (yawn || 0);
   const fatiguePct = Math.min(100, (peakMar / 0.80) * 100);
-  pushChartPoint(timestamp, overall, engine.sessionMean, facing, fatiguePct);
+  pushChartPoint(timestamp, overall, engine.sessionMean, Math.round(engine.current.facing), fatiguePct);
 
   // Store in session logs for CSV export
   sessionLogs.push({
@@ -1360,6 +1510,9 @@ setInterval(() => {
 
 document.addEventListener('DOMContentLoaded', () => {
   gizmoCanvas = document.getElementById('gizmo-canvas');
+
+  // Trigger cinematic Awakening Eye bootloader sequence
+  runBootloaderSequence(false);
 
   initSessionSetup();
   initMasterChart();
