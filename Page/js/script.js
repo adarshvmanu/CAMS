@@ -684,6 +684,28 @@ const engine = new TwoSpeedTelemetryEngine();
 // ============================================================================
 
 let chartInstance = null;
+let modalChartInstance = null;
+
+// Master telemetry archive for entire lecture session (supports deep-dive crop & zoom across all session frames)
+const masterTelemetryStream = {
+  labels: [],
+  focus: [],
+  mean: [],
+  facing: [],
+  fatigue: [],
+  frames: []
+};
+
+// Interactive Chart Zoom & Deep Insight State
+const chartZoomState = {
+  isZoomed: false,
+  startIndex: 0,
+  endIndex: 0,
+  bufferedCount: 0,
+  activeFilter: 'all',
+  sliceStats: null
+};
+
 const chartHistory = {
   labels: [],
   focus: [],
@@ -711,10 +733,14 @@ function initMasterChart() {
           backgroundColor: 'rgba(24, 24, 27, 0.04)',
           fill: true,
           tension: 0.28,
-          pointRadius: (context) => (context.dataIndex === context.dataset.data.length - 1 ? 4 : 0),
+          pointRadius: (context) => {
+            if (chartZoomState.isZoomed) return 4;
+            return context.dataIndex === context.dataset.data.length - 1 ? 4 : 0;
+          },
+          pointHoverRadius: 7,
           pointBackgroundColor: '#18181B',
           pointBorderColor: '#FFFFFF',
-          pointBorderWidth: 2
+          pointBorderWidth: 1.8
         },
         {
           label: 'Session Mean %',
@@ -731,7 +757,9 @@ function initMasterChart() {
           data: chartHistory.facing,
           borderColor: '#0071E3',
           borderWidth: 1.6,
-          pointRadius: 0,
+          pointRadius: (context) => (chartZoomState.isZoomed ? 3 : 0),
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#0071E3',
           fill: false,
           tension: 0.28
         },
@@ -740,7 +768,9 @@ function initMasterChart() {
           data: chartHistory.fatigue,
           borderColor: '#FF3B30',
           borderWidth: 1.5,
-          pointRadius: 0,
+          pointRadius: (context) => (chartZoomState.isZoomed ? 3 : 0),
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#FF3B30',
           fill: false,
           tension: 0.28
         }
@@ -750,14 +780,65 @@ function initMasterChart() {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
+      onHover: (event, chartElements) => {
+        if (chartElements && chartElements.length > 0) {
+          const idx = chartElements[0].index;
+          if (chartInstance && chartInstance.data && chartInstance.data.datasets) {
+            const fVal = chartInstance.data.datasets[0].data[idx];
+            const mVal = chartInstance.data.datasets[1].data[idx];
+            const gVal = chartInstance.data.datasets[2].data[idx];
+            const fatVal = chartInstance.data.datasets[3].data[idx];
+
+            const legFocus = document.getElementById('leg-focus');
+            const legMean = document.getElementById('leg-mean');
+            const legFacing = document.getElementById('leg-facing');
+            const legMar = document.getElementById('leg-mar');
+            if (legFocus && typeof fVal === 'number') legFocus.textContent = `${fVal.toFixed(1)}%`;
+            if (legMean && typeof mVal === 'number') legMean.textContent = `${mVal.toFixed(1)}%`;
+            if (legFacing && typeof gVal === 'number') legFacing.textContent = `${gVal.toFixed(1)}%`;
+            if (legMar && typeof fatVal === 'number') legMar.textContent = `${(fatVal / 100 * 0.80).toFixed(2)}`;
+          }
+        }
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(24, 24, 27, 0.92)',
+          backgroundColor: 'rgba(24, 24, 27, 0.94)',
           titleFont: { family: 'JetBrains Mono', size: 11 },
           bodyFont: { family: 'Inter', size: 12 },
-          cornerRadius: 6,
-          padding: 8
+          cornerRadius: 8,
+          padding: 10,
+          callbacks: {
+            label: function(context) {
+              const datasetLabel = context.dataset.label || '';
+              const value = context.parsed.y;
+              return `  ${datasetLabel}: ${value !== null && value !== undefined ? value.toFixed(1) : ''}%`;
+            },
+            afterBody: function(context) {
+              if (!context || !context[0]) return '';
+              const dataIdx = context[0].dataIndex;
+              let frame = null;
+              if (chartZoomState.isZoomed && chartZoomState.sliceStats && chartZoomState.sliceStats.frames) {
+                frame = chartZoomState.sliceStats.frames[dataIdx];
+              } else if (masterTelemetryStream.frames.length > 0) {
+                const currentOffset = Math.max(0, masterTelemetryStream.labels.length - (chartInstance.data.labels ? chartInstance.data.labels.length : 0));
+                frame = masterTelemetryStream.frames[currentOffset + dataIdx];
+              }
+
+              if (frame && frame.students && frame.students[0]) {
+                const s = frame.students[0];
+                const p = typeof s.pitch === 'number' ? s.pitch.toFixed(1) : '0.0';
+                const y = typeof s.yaw === 'number' ? s.yaw.toFixed(1) : '0.0';
+                const ear = typeof s.ear === 'number' ? s.ear.toFixed(2) : '0.30';
+                const mar = typeof s.mar === 'number' ? s.mar.toFixed(2) : '0.08';
+                return [
+                  `  Posture: Pitch ${s.pitch > 0 ? '+' : ''}${p}° · Yaw ${y}°`,
+                  `  Biometrics: EAR ${ear} · MAR ${mar} · [${s.status || 'Active'}]`
+                ];
+              }
+              return '';
+            }
+          }
         }
       },
       scales: {
@@ -769,7 +850,7 @@ function initMasterChart() {
             maxRotation: 0,
             minRotation: 0,
             autoSkip: true,
-            maxTicksLimit: 6
+            maxTicksLimit: 7
           },
           border: { display: false }
         },
@@ -792,9 +873,11 @@ function initMasterChart() {
   // Filter Buttons
   document.querySelectorAll('.filter-tab-btn').forEach(btn => {
     btn.addEventListener('click', function() {
-      document.querySelectorAll('.filter-tab-btn').forEach(b => b.classList.remove('active'));
+      if (this.id === 'btn-header-reset-zoom' || this.id === 'btn-open-deep-insight') return;
+      document.querySelectorAll('.filter-tab-btn:not(.btn-header-reset):not(.btn-deep-insight-trigger)').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
       const filter = this.getAttribute('data-filter');
+      chartZoomState.activeFilter = filter;
 
       if (!chartInstance) return;
 
@@ -822,26 +905,721 @@ function initMasterChart() {
       chartInstance.update('none');
     });
   });
-}
 
-function pushChartPoint(timestamp, focus, mean, facing, fatiguePct) {
-  if (!chartInstance) return;
+  // --------------------------------------------------------------------------
+  // INTERACTIVE CROP & ZOOM MARQUEE CONTROLLER (MOUSE DRAG / BRUSH SELECTION)
+  // --------------------------------------------------------------------------
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  const marquee = document.getElementById('chart-crop-marquee');
+  const cropBadge = document.getElementById('crop-badge');
 
-  chartHistory.labels.push(timestamp);
-  chartHistory.focus.push(focus);
-  chartHistory.mean.push(mean);
-  chartHistory.facing.push(facing);
-  chartHistory.fatigue.push(fatiguePct);
+  function onMouseDown(e) {
+    if (e.button !== 0 || !chartInstance) return;
+    const ca = chartInstance.chartArea;
+    if (!ca) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-  if (chartHistory.labels.length > MAX_HISTORY_POINTS) {
-    chartHistory.labels.shift();
-    chartHistory.focus.shift();
-    chartHistory.mean.shift();
-    chartHistory.facing.shift();
-    chartHistory.fatigue.shift();
+    if (x < ca.left || x > ca.right || y < ca.top || y > ca.bottom) return;
+
+    isDragging = true;
+    dragStartX = x;
+    dragStartY = y;
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
   }
 
-  chartInstance.update('none');
+  function onMouseMove(e) {
+    if (!isDragging || !chartInstance) return;
+    const ca = chartInstance.chartArea;
+    const rect = canvas.getBoundingClientRect();
+    const curX = Math.max(ca.left, Math.min(ca.right, e.clientX - rect.left));
+    const curY = Math.max(ca.top, Math.min(ca.bottom, e.clientY - rect.top));
+
+    const left = Math.min(dragStartX, curX);
+    const top = Math.min(dragStartY, curY);
+    const width = Math.abs(curX - dragStartX);
+    const height = Math.abs(curY - dragStartY);
+
+    if (width > 6 && marquee) {
+      marquee.classList.remove('hidden');
+      marquee.style.left = `${left}px`;
+      marquee.style.top = `${top}px`;
+      marquee.style.width = `${width}px`;
+      marquee.style.height = `${height}px`;
+
+      if (cropBadge && chartInstance.data.labels && chartInstance.data.labels.length > 0) {
+        const labels = chartInstance.data.labels;
+        const idxA = Math.max(0, Math.min(labels.length - 1, Math.round(chartInstance.scales.x.getValueForPixel(left))));
+        const idxB = Math.max(0, Math.min(labels.length - 1, Math.round(chartInstance.scales.x.getValueForPixel(left + width))));
+        const tA = labels[idxA] || '--:--:--';
+        const tB = labels[idxB] || '--:--:--';
+        const count = Math.abs(idxB - idxA) + 1;
+        cropBadge.textContent = `Crop: ${tA} ➔ ${tB} (${count} pts)`;
+      }
+    }
+  }
+
+  function onMouseUp(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+
+    if (marquee) marquee.classList.add('hidden');
+
+    if (!chartInstance) return;
+    const rect = canvas.getBoundingClientRect();
+    const curX = e.clientX - rect.left;
+    const width = Math.abs(curX - dragStartX);
+
+    // If dragged width >= 15px, execute crop & zoom into that exact interval
+    if (width >= 15 && chartInstance.data.labels && chartInstance.data.labels.length > 1) {
+      const ca = chartInstance.chartArea;
+      const leftX = Math.max(ca.left, Math.min(ca.right, Math.min(dragStartX, curX)));
+      const rightX = Math.max(ca.left, Math.min(ca.right, Math.max(dragStartX, curX)));
+
+      const labels = chartInstance.data.labels;
+      const localStart = Math.max(0, Math.min(labels.length - 1, Math.round(chartInstance.scales.x.getValueForPixel(leftX))));
+      const localEnd = Math.max(0, Math.min(labels.length - 1, Math.round(chartInstance.scales.x.getValueForPixel(rightX))));
+
+      if (localEnd - localStart >= 1) {
+        let masterStart, masterEnd;
+        if (!chartZoomState.isZoomed) {
+          const currentWindowOffset = Math.max(0, masterTelemetryStream.labels.length - labels.length);
+          masterStart = currentWindowOffset + localStart;
+          masterEnd = currentWindowOffset + localEnd;
+        } else {
+          masterStart = chartZoomState.startIndex + localStart;
+          masterEnd = chartZoomState.startIndex + localEnd;
+        }
+        applyChartZoom(masterStart, masterEnd);
+        showToast('Zoomed into cropped telemetry slice', '🔍');
+      }
+    }
+  }
+
+  canvas.addEventListener('mousedown', onMouseDown);
+
+  // --------------------------------------------------------------------------
+  // DOUBLE CLICK TO ZOOM IN / RESET ZOOM
+  // --------------------------------------------------------------------------
+  canvas.addEventListener('dblclick', function(e) {
+    if (chartZoomState.isZoomed) {
+      // If already zoomed in, double-click resets to live streaming
+      resetChartZoom();
+      showToast('Reset to Live Telemetry Stream', '⟲');
+      return;
+    }
+
+    if (masterTelemetryStream.labels.length < 5) {
+      showToast('Awaiting more stream data to inspect interval', '⏳');
+      return;
+    }
+
+    const ca = chartInstance.chartArea;
+    if (!ca) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const clampedX = Math.max(ca.left, Math.min(ca.right, x));
+    const labels = chartInstance.data.labels || [];
+    if (labels.length === 0) return;
+
+    const localIdx = Math.max(0, Math.min(labels.length - 1, Math.round(chartInstance.scales.x.getValueForPixel(clampedX))));
+    const currentWindowOffset = Math.max(0, masterTelemetryStream.labels.length - labels.length);
+    const masterCenter = currentWindowOffset + localIdx;
+
+    const halfWindow = 12; // 24-point focused inspection window
+    const masterStart = Math.max(0, masterCenter - halfWindow);
+    const masterEnd = Math.min(masterTelemetryStream.labels.length - 1, masterCenter + halfWindow);
+
+    applyChartZoom(masterStart, masterEnd);
+    showToast('Deep Insight: Zoomed into interval · Double-click to reset', '🔍');
+  });
+
+  // --------------------------------------------------------------------------
+  // MOUSE WHEEL / PINCH TO ZOOM
+  // --------------------------------------------------------------------------
+  canvas.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    if (masterTelemetryStream.labels.length < 5 || !chartInstance) return;
+
+    const delta = Math.sign(e.deltaY);
+    const curLen = chartInstance.data.labels ? chartInstance.data.labels.length : 0;
+
+    if (delta < 0) {
+      // Zoom in (shrink window by 20%)
+      if (curLen <= 5) return;
+      const step = Math.max(2, Math.floor(curLen * 0.2));
+      let start = chartZoomState.isZoomed ? chartZoomState.startIndex : Math.max(0, masterTelemetryStream.labels.length - curLen);
+      let end = chartZoomState.isZoomed ? chartZoomState.endIndex : masterTelemetryStream.labels.length - 1;
+
+      start = Math.min(end - 4, start + Math.floor(step / 2));
+      end = Math.max(start + 4, end - Math.ceil(step / 2));
+      applyChartZoom(start, end);
+    } else {
+      // Zoom out (expand window by 20%)
+      if (!chartZoomState.isZoomed) return;
+      const step = Math.max(2, Math.floor(curLen * 0.2));
+      let start = Math.max(0, chartZoomState.startIndex - Math.floor(step / 2));
+      let end = Math.min(masterTelemetryStream.labels.length - 1, chartZoomState.endIndex + Math.ceil(step / 2));
+
+      if (start === 0 && end === masterTelemetryStream.labels.length - 1) {
+        resetChartZoom();
+      } else {
+        applyChartZoom(start, end);
+      }
+    }
+  }, { passive: false });
+}
+
+// ----------------------------------------------------------------------------
+// CHART ZOOM & DEEP INSIGHT APPLIED HANDLERS
+// ----------------------------------------------------------------------------
+
+function applyChartZoom(startIndex, endIndex) {
+  if (!chartInstance) return;
+  const maxIdx = masterTelemetryStream.labels.length - 1;
+  startIndex = Math.max(0, Math.min(maxIdx, startIndex));
+  endIndex = Math.max(0, Math.min(maxIdx, endIndex));
+
+  if (endIndex - startIndex < 2) {
+    if (startIndex > 0) startIndex--;
+    if (endIndex < maxIdx) endIndex++;
+  }
+
+  chartZoomState.isZoomed = true;
+  chartZoomState.startIndex = startIndex;
+  chartZoomState.endIndex = endIndex;
+  chartZoomState.bufferedCount = 0;
+
+  const sliceLabels = masterTelemetryStream.labels.slice(startIndex, endIndex + 1);
+  const sliceFocus = masterTelemetryStream.focus.slice(startIndex, endIndex + 1);
+  const sliceMean = masterTelemetryStream.mean.slice(startIndex, endIndex + 1);
+  const sliceFacing = masterTelemetryStream.facing.slice(startIndex, endIndex + 1);
+  const sliceFatigue = masterTelemetryStream.fatigue.slice(startIndex, endIndex + 1);
+  const sliceFrames = masterTelemetryStream.frames.slice(startIndex, endIndex + 1);
+
+  chartInstance.data.labels = sliceLabels;
+  chartInstance.data.datasets[0].data = sliceFocus;
+  chartInstance.data.datasets[1].data = sliceMean;
+  chartInstance.data.datasets[2].data = sliceFacing;
+  chartInstance.data.datasets[3].data = sliceFatigue;
+
+  // Auto-fit Y-scale to amplitude of selected data slice
+  const allVals = [...sliceFocus, ...sliceFacing, ...sliceFatigue].filter(v => typeof v === 'number' && !isNaN(v));
+  if (allVals.length > 0) {
+    const minVal = Math.min(...allVals);
+    const maxVal = Math.max(...allVals);
+    const pad = Math.max(4, (maxVal - minVal) * 0.12);
+    chartInstance.options.scales.y.min = Math.max(0, Math.floor(minVal - pad));
+    chartInstance.options.scales.y.max = Math.min(100, Math.ceil(maxVal + pad));
+    const range = chartInstance.options.scales.y.max - chartInstance.options.scales.y.min;
+    chartInstance.options.scales.y.ticks.stepSize = Math.max(5, Math.round(range / 4));
+  }
+
+  chartInstance.update();
+
+  // Compute slice statistics
+  const stats = calculateSliceStats(sliceLabels, sliceFocus, sliceMean, sliceFacing, sliceFatigue, sliceFrames, startIndex, endIndex);
+  chartZoomState.sliceStats = stats;
+
+  // Render Floating HUD Bar
+  const hud = document.getElementById('curve-insight-hud');
+  if (hud) {
+    hud.classList.remove('hidden');
+    const hudZoom = document.getElementById('hud-zoom-level');
+    const hudTime = document.getElementById('hud-time-range');
+    const hudFocus = document.getElementById('hud-avg-focus');
+    const hudMinMax = document.getElementById('hud-min-max');
+    const hudGaze = document.getElementById('hud-gaze');
+    const hudTrend = document.getElementById('hud-trend');
+
+    if (hudZoom) hudZoom.textContent = `${stats.zoomLevel}x`;
+    if (hudTime) hudTime.innerHTML = `${stats.startTime} ➔ ${stats.endTime} (<span id="hud-duration">${stats.sampleCount}s</span>)`;
+    if (hudFocus) hudFocus.textContent = `${stats.meanFocus.toFixed(1)}%`;
+    if (hudMinMax) hudMinMax.textContent = `${stats.minFocus.toFixed(0)}% / ${stats.maxFocus.toFixed(0)}%`;
+    if (hudGaze) hudGaze.textContent = `${stats.meanFacing.toFixed(0)}%`;
+    if (hudTrend) {
+      if (stats.slope > 0.3) {
+        hudTrend.innerHTML = `<span style="color:#34C759">▲ +${stats.slope.toFixed(1)}%/s</span>`;
+      } else if (stats.slope < -0.3) {
+        hudTrend.innerHTML = `<span style="color:#FF3B30">▼ ${stats.slope.toFixed(1)}%/s</span>`;
+      } else {
+        hudTrend.innerHTML = `<span style="color:var(--ink-secondary)">— Stable</span>`;
+      }
+    }
+  }
+
+  // Update Header & Footer Indicators
+  const btnHeaderReset = document.getElementById('btn-header-reset-zoom');
+  if (btnHeaderReset) btnHeaderReset.classList.remove('hidden');
+
+  const footerDesc = document.getElementById('timeline-footer-desc');
+  if (footerDesc) footerDesc.textContent = '⏸ Zoomed Slice Inspection (Double-click or Esc to return to live)';
+
+  const bufferPill = document.getElementById('timeline-buffer-pill');
+  if (bufferPill) {
+    bufferPill.classList.remove('hidden');
+    const bufCount = document.getElementById('timeline-buffered-count');
+    if (bufCount) bufCount.textContent = '0';
+  }
+}
+
+function resetChartZoom() {
+  if (!chartInstance) return;
+  chartZoomState.isZoomed = false;
+  chartZoomState.bufferedCount = 0;
+  chartZoomState.sliceStats = null;
+
+  const len = masterTelemetryStream.labels.length;
+  const start = Math.max(0, len - MAX_HISTORY_POINTS);
+
+  chartInstance.data.labels = masterTelemetryStream.labels.slice(start);
+  chartInstance.data.datasets[0].data = masterTelemetryStream.focus.slice(start);
+  chartInstance.data.datasets[1].data = masterTelemetryStream.mean.slice(start);
+  chartInstance.data.datasets[2].data = masterTelemetryStream.facing.slice(start);
+  chartInstance.data.datasets[3].data = masterTelemetryStream.fatigue.slice(start);
+
+  chartInstance.options.scales.y.min = 0;
+  chartInstance.options.scales.y.max = 100;
+  chartInstance.options.scales.y.ticks.stepSize = 25;
+
+  chartInstance.update();
+
+  const hud = document.getElementById('curve-insight-hud');
+  if (hud) hud.classList.add('hidden');
+
+  const btnHeaderReset = document.getElementById('btn-header-reset-zoom');
+  if (btnHeaderReset) btnHeaderReset.classList.add('hidden');
+
+  const bufferPill = document.getElementById('timeline-buffer-pill');
+  if (bufferPill) bufferPill.classList.add('hidden');
+
+  const footerDesc = document.getElementById('timeline-footer-desc');
+  if (footerDesc) footerDesc.textContent = '100-pt Sliding Window · 4-Trace Telemetry Stream';
+}
+
+function calculateSliceStats(labels, focus, mean, facing, fatigue, frames, startIndex, endIndex) {
+  const sampleCount = focus.length;
+  const sumFocus = focus.reduce((a, b) => a + b, 0);
+  const meanFocus = sampleCount > 0 ? sumFocus / sampleCount : 0;
+  const minFocus = sampleCount > 0 ? Math.min(...focus) : 0;
+  const maxFocus = sampleCount > 0 ? Math.max(...focus) : 0;
+
+  const variance = sampleCount > 0 ? focus.reduce((acc, v) => acc + Math.pow(v - meanFocus, 2), 0) / sampleCount : 0;
+  const stdDev = Math.sqrt(variance);
+
+  const sumFacing = facing.reduce((a, b) => a + b, 0);
+  const meanFacing = sampleCount > 0 ? sumFacing / sampleCount : 0;
+
+  const peakFatigue = fatigue.length > 0 ? Math.max(...fatigue) : 0;
+  const slope = sampleCount > 1 ? (focus[focus.length - 1] - focus[0]) / (sampleCount - 1) : 0;
+
+  const totalStreamLen = Math.max(1, masterTelemetryStream.labels.length);
+  const zoomLevel = (totalStreamLen / Math.max(1, sampleCount)).toFixed(1);
+
+  // Extract student kinematics across frames
+  let pitchList = [];
+  let yawList = [];
+  let earList = [];
+  let marList = [];
+  let sleepCount = 0;
+  let yawnCount = 0;
+
+  frames.forEach(frame => {
+    if (!frame) return;
+    if (frame.sleep) sleepCount++;
+    if (frame.yawn) yawnCount++;
+    if (frame.students && Array.isArray(frame.students)) {
+      frame.students.forEach(s => {
+        if (typeof s.pitch === 'number') pitchList.push(s.pitch);
+        if (typeof s.yaw === 'number') yawList.push(s.yaw);
+        if (typeof s.ear === 'number') earList.push(s.ear);
+        if (typeof s.mar === 'number') marList.push(s.mar);
+      });
+    }
+  });
+
+  const avgPitch = pitchList.length > 0 ? pitchList.reduce((a, b) => a + b, 0) / pitchList.length : 0;
+  const avgYaw = yawList.length > 0 ? yawList.reduce((a, b) => a + b, 0) / yawList.length : 0;
+  const minEar = earList.length > 0 ? Math.min(...earList) : 0.28;
+  const maxMar = marList.length > 0 ? Math.max(...marList) : 0.08;
+
+  return {
+    startIndex, endIndex,
+    labels, focus, mean, facing, fatigue, frames,
+    sampleCount,
+    meanFocus, minFocus, maxFocus, stdDev,
+    meanFacing, peakFatigue, slope, zoomLevel,
+    startTime: labels[0] || '--:--:--',
+    endTime: labels[labels.length - 1] || '--:--:--',
+    avgPitch, avgYaw, minEar, maxMar, sleepCount, yawnCount
+  };
+}
+
+function openDeepInsightModal(customSlice) {
+  let stats = customSlice || chartZoomState.sliceStats;
+  if (!stats) {
+    if (masterTelemetryStream.labels.length === 0) {
+      showToast('No telemetry data available yet to inspect', '⚠️');
+      return;
+    }
+    const len = masterTelemetryStream.labels.length;
+    const start = Math.max(0, len - 30);
+    const end = len - 1;
+    stats = calculateSliceStats(
+      masterTelemetryStream.labels.slice(start),
+      masterTelemetryStream.focus.slice(start),
+      masterTelemetryStream.mean.slice(start),
+      masterTelemetryStream.facing.slice(start),
+      masterTelemetryStream.fatigue.slice(start),
+      masterTelemetryStream.frames.slice(start),
+      start, end
+    );
+  }
+
+  // Populate Modal Header & Tags
+  const sliceTag = document.getElementById('modal-slice-tag');
+  if (sliceTag) sliceTag.textContent = `Interval: ${stats.startTime} ➔ ${stats.endTime} (${stats.sampleCount}s)`;
+
+  // Populate 4 KPI Cards
+  const kpiMean = document.getElementById('modal-kpi-mean');
+  const kpiDelta = document.getElementById('modal-kpi-delta');
+  const kpiRange = document.getElementById('modal-kpi-range');
+  const kpiFacing = document.getElementById('modal-kpi-facing');
+  const kpiFacingTag = document.getElementById('modal-kpi-facing-tag');
+  const kpiGazeDesc = document.getElementById('modal-kpi-gaze-desc');
+  const kpiFatigue = document.getElementById('modal-kpi-fatigue');
+  const kpiFatigueTag = document.getElementById('modal-kpi-fatigue-tag');
+  const kpiFatigueDesc = document.getElementById('modal-kpi-fatigue-desc');
+  const kpiTraj = document.getElementById('modal-kpi-trajectory');
+  const kpiTrajTag = document.getElementById('modal-kpi-traj-tag');
+  const kpiTrajDesc = document.getElementById('modal-kpi-traj-desc');
+
+  if (kpiMean) kpiMean.textContent = `${stats.meanFocus.toFixed(1)}%`;
+  if (kpiDelta) {
+    const diff = stats.meanFocus - engine.sessionMean;
+    kpiDelta.textContent = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}% vs session`;
+    kpiDelta.style.color = diff >= 0 ? '#34C759' : '#FF3B30';
+  }
+  if (kpiRange) kpiRange.textContent = `Min: ${stats.minFocus.toFixed(0)}% · Max: ${stats.maxFocus.toFixed(0)}% · StdDev: ±${stats.stdDev.toFixed(1)}%`;
+
+  if (kpiFacing) kpiFacing.textContent = `${stats.meanFacing.toFixed(1)}%`;
+  if (kpiFacingTag) {
+    if (stats.meanFacing >= 80) {
+      kpiFacingTag.textContent = 'Frontal Sync';
+      kpiFacingTag.className = 'kpi-tag-status';
+    } else if (stats.meanFacing >= 50) {
+      kpiFacingTag.textContent = 'Partial Deflection';
+      kpiFacingTag.className = 'kpi-tag-status warn';
+    } else {
+      kpiFacingTag.textContent = 'Averted';
+      kpiFacingTag.className = 'kpi-tag-status alert';
+    }
+  }
+  if (kpiGazeDesc) kpiGazeDesc.textContent = `Avg Pitch ${stats.avgPitch.toFixed(1)}° · Avg Yaw ${stats.avgYaw.toFixed(1)}°`;
+
+  if (kpiFatigue) kpiFatigue.textContent = `${stats.maxMar.toFixed(2)} MAR`;
+  if (kpiFatigueTag) {
+    if (stats.maxMar >= 0.60 || stats.yawnCount > 0) {
+      kpiFatigueTag.textContent = 'Yawn Alert';
+      kpiFatigueTag.className = 'kpi-tag-status alert';
+    } else if (stats.minEar < 0.20 || stats.sleepCount > 0) {
+      kpiFatigueTag.textContent = 'Drowsy / Eyelids';
+      kpiFatigueTag.className = 'kpi-tag-status warn';
+    } else {
+      kpiFatigueTag.textContent = 'Normal';
+      kpiFatigueTag.className = 'kpi-tag-status';
+    }
+  }
+  if (kpiFatigueDesc) kpiFatigueDesc.textContent = `${stats.yawnCount} yawn events · Min EAR: ${stats.minEar.toFixed(2)}`;
+
+  if (kpiTraj) {
+    if (stats.slope > 0.3) {
+      kpiTraj.textContent = `▲ +${stats.slope.toFixed(2)}%/s`;
+      kpiTraj.style.color = '#34C759';
+      if (kpiTrajTag) { kpiTrajTag.textContent = 'Surging'; kpiTrajTag.className = 'kpi-tag-status'; }
+    } else if (stats.slope < -0.3) {
+      kpiTraj.textContent = `▼ ${stats.slope.toFixed(2)}%/s`;
+      kpiTraj.style.color = '#FF3B30';
+      if (kpiTrajTag) { kpiTrajTag.textContent = 'Dipping'; kpiTrajTag.className = 'kpi-tag-status warn'; }
+    } else {
+      kpiTraj.textContent = `— ${stats.slope.toFixed(2)}%/s`;
+      kpiTraj.style.color = 'var(--ink-primary)';
+      if (kpiTrajTag) { kpiTrajTag.textContent = 'Stable'; kpiTrajTag.className = 'kpi-tag-status'; }
+    }
+  }
+  if (kpiTrajDesc) kpiTrajDesc.textContent = `Linear velocity across ${stats.sampleCount} sampled seconds`;
+
+  // Render High-Definition Modal Waveform Chart
+  const modalCanvas = document.getElementById('modal-chart-canvas');
+  if (modalCanvas) {
+    if (modalChartInstance) {
+      modalChartInstance.destroy();
+    }
+    const mCtx = modalCanvas.getContext('2d');
+    modalChartInstance = new Chart(mCtx, {
+      type: 'line',
+      data: {
+        labels: stats.labels,
+        datasets: [
+          {
+            label: 'Active Focus %',
+            data: stats.focus,
+            borderColor: '#18181B',
+            borderWidth: 2.2,
+            backgroundColor: 'rgba(24, 24, 27, 0.05)',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 4,
+            pointBackgroundColor: '#18181B',
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 1.5,
+            pointHoverRadius: 7
+          },
+          {
+            label: 'Session Mean %',
+            data: stats.mean,
+            borderColor: '#A1A1AA',
+            borderWidth: 1.5,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            fill: false,
+            tension: 0.1
+          },
+          {
+            label: 'Board Gaze Alignment %',
+            data: stats.facing,
+            borderColor: '#0071E3',
+            borderWidth: 1.8,
+            pointRadius: 3,
+            pointBackgroundColor: '#0071E3',
+            fill: false,
+            tension: 0.25
+          },
+          {
+            label: 'Mouth Aspect Ratio (MAR %)',
+            data: stats.fatigue,
+            borderColor: '#FF3B30',
+            borderWidth: 1.6,
+            pointRadius: 3,
+            pointBackgroundColor: '#FF3B30',
+            fill: false,
+            tension: 0.25
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(24, 24, 27, 0.94)',
+            titleFont: { family: 'JetBrains Mono', size: 11 },
+            bodyFont: { family: 'Inter', size: 12 },
+            padding: 10,
+            cornerRadius: 8
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(0, 0, 0, 0.04)' },
+            ticks: {
+              font: { family: 'JetBrains Mono', size: 10 },
+              color: '#A1A1AA',
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 8
+            }
+          },
+          y: {
+            min: Math.max(0, Math.floor(stats.minFocus - 5)),
+            max: Math.min(100, Math.ceil(Math.max(stats.maxFocus, ...stats.facing) + 5)),
+            grid: { color: '#F0F0F4' },
+            ticks: {
+              font: { family: 'JetBrains Mono', size: 10 },
+              color: '#A1A1AA',
+              callback: (v) => `${v}%`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Synthesize Deterministic Pedagogical Narrative
+  const diagText = document.getElementById('modal-diagnosis-text');
+  if (diagText) {
+    let diagnosis = '';
+    if (stats.maxMar >= 0.60 || stats.yawnCount > 0) {
+      diagnosis = `Fatigue signature identified during this interval. Mouth aspect ratio peaked at ${stats.maxMar.toFixed(2)} with ocular narrowing (EAR ${stats.minEar.toFixed(2)}). Engagement dipped to ${stats.minFocus.toFixed(0)}%. Recommended pedagogical action: introduce an active problem-solving prompt or direct audience inquiry.`;
+    } else if (stats.minFocus < 60 && stats.avgPitch < -12) {
+      diagnosis = `Transient attention dip to ${stats.minFocus.toFixed(0)}% was accompanied by downward head pitch deflection (mean ${stats.avgPitch.toFixed(1)}°). Oral kinematics remained baseline (MAR ${stats.maxMar.toFixed(2)}). This kinetic signature is consistent with desk problem solving, notebook writing, or slide copy rather than mental distraction.`;
+    } else if (stats.meanFacing < 70) {
+      diagnosis = `Lateral gaze divergence recorded: Cohort departed frontal presentation alignment for multiple samples (mean board alignment ${stats.meanFacing.toFixed(0)}%, peak yaw ${stats.avgYaw.toFixed(1)}°). This reflects lateral peer discussion or room inspection rather than sleepiness.`;
+    } else if (stats.meanFocus >= 80) {
+      diagnosis = `High cognitive synchrony: Cohort demonstrated sustained frontal engagement (${stats.meanFocus.toFixed(1)}% mean attention, ${stats.meanFacing.toFixed(0)}% board alignment). Head kinematics were centered within the primary lecture cone.`;
+    } else if (stats.slope > 0.4) {
+      diagnosis = `Rapid engagement recovery: Attention rebounded by +${(stats.focus[stats.focus.length - 1] - stats.focus[0]).toFixed(1)}% across this window, returning to forward presentation synchronization.`;
+    } else {
+      diagnosis = `Equilibrium phase: Attention remained stable around ${stats.meanFocus.toFixed(1)}% (StdDev ±${stats.stdDev.toFixed(1)}%). Zero oral or ocular fatigue anomalies detected.`;
+    }
+    diagText.textContent = diagnosis;
+  }
+
+  // Populate Forensic Ledger Table
+  const tbody = document.getElementById('modal-ledger-tbody');
+  const frameCountEl = document.getElementById('modal-frame-count');
+  if (frameCountEl) frameCountEl.textContent = stats.sampleCount;
+
+  if (tbody) {
+    tbody.innerHTML = '';
+    stats.labels.forEach((t, i) => {
+      const f = stats.focus[i];
+      const facing = stats.facing[i];
+      const fat = stats.fatigue[i];
+      const frameObj = stats.frames[i];
+      const student = (frameObj && frameObj.students && frameObj.students[0]) || {};
+
+      const pitch = typeof student.pitch === 'number' ? student.pitch.toFixed(1) : (stats.avgPitch.toFixed(1));
+      const yaw = typeof student.yaw === 'number' ? student.yaw.toFixed(1) : (stats.avgYaw.toFixed(1));
+      const ear = typeof student.ear === 'number' ? student.ear.toFixed(2) : (stats.minEar.toFixed(2));
+      const mar = typeof student.mar === 'number' ? student.mar.toFixed(2) : ((fat / 100 * 0.80).toFixed(2));
+      const status = student.status || (f >= 70 ? 'Attentive' : (mar >= 0.60 ? 'Yawning' : (ear < 0.20 ? 'Sleeping' : 'Distracted')));
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono tabular-nums font-medium">${t}</td>
+        <td class="mono tabular-nums font-semibold">${f.toFixed(1)}%</td>
+        <td class="mono tabular-nums">P: ${pitch}&deg; · Y: ${yaw}&deg;</td>
+        <td><span class="mono tabular-nums">${facing}%</span> <span class="text-xs" style="color:var(--ink-tertiary)">(${facing >= 75 ? 'Frontal' : 'Deflected'})</span></td>
+        <td class="mono tabular-nums">${ear}</td>
+        <td class="mono tabular-nums">${mar}</td>
+        <td><span class="kpi-tag-status ${status === 'Attentive' ? '' : (status === 'Yawning' || status === 'Sleeping' ? 'alert' : 'warn')}">${status}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Open Backdrop
+  const backdrop = document.getElementById('deep-insight-modal-backdrop');
+  if (backdrop) backdrop.classList.add('show');
+}
+
+function closeDeepInsightModal() {
+  const backdrop = document.getElementById('deep-insight-modal-backdrop');
+  if (backdrop) backdrop.classList.remove('show');
+}
+
+function exportSliceToCsv(stats) {
+  if (!stats || !stats.labels || stats.labels.length === 0) {
+    showToast('No slice data to export', '⚠️');
+    return;
+  }
+  let csvContent = "data:text/csv;charset=utf-8,";
+  csvContent += "Timestamp,Focus_Pct,Session_Mean_Pct,Board_Alignment_Pct,Mouth_MAR,Pitch_Deg,Yaw_Deg,EAR,Status\n";
+
+  stats.labels.forEach((t, i) => {
+    const f = stats.focus[i];
+    const m = stats.mean[i];
+    const facing = stats.facing[i];
+    const fat = stats.fatigue[i];
+    const frameObj = stats.frames[i];
+    const student = (frameObj && frameObj.students && frameObj.students[0]) || {};
+
+    const pitch = typeof student.pitch === 'number' ? student.pitch : stats.avgPitch;
+    const yaw = typeof student.yaw === 'number' ? student.yaw : stats.avgYaw;
+    const ear = typeof student.ear === 'number' ? student.ear : stats.minEar;
+    const mar = typeof student.mar === 'number' ? student.mar : (fat / 100 * 0.80);
+    const status = student.status || (f >= 70 ? 'Attentive' : 'Distracted');
+
+    csvContent += `${t},${f},${m},${facing},${mar.toFixed(3)},${pitch.toFixed(1)},${yaw.toFixed(1)},${ear.toFixed(2)},${status}\n`;
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `cams_slice_${stats.startTime.replace(/:/g, '')}_${stats.endTime.replace(/:/g, '')}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('Interval Slice CSV Exported!', '⬇');
+}
+
+function copySliceReport(stats) {
+  if (!stats) return;
+  const diagEl = document.getElementById('modal-diagnosis-text');
+  const report = [
+    `=======================================================`,
+    `CAMS TELEMETRY DEEP INSIGHT — INTERVAL FORENSIC REPORT`,
+    `=======================================================`,
+    `Interval: ${stats.startTime} to ${stats.endTime} (${stats.sampleCount} samples)`,
+    `Course: ${sessionConfig.className || 'Session'} | Room: ${sessionConfig.room || 'Studio'}`,
+    `Mean Focus: ${stats.meanFocus.toFixed(1)}% (Min: ${stats.minFocus.toFixed(1)}%, Max: ${stats.maxFocus.toFixed(1)}%)`,
+    `Variance / StdDev: ±${stats.stdDev.toFixed(1)}%`,
+    `Board Gaze Alignment: ${stats.meanFacing.toFixed(1)}%`,
+    `Fatigue Kinematics: Peak MAR ${stats.maxMar.toFixed(2)}, Min EAR ${stats.minEar.toFixed(2)} (${stats.yawnCount} yawns)`,
+    `Trajectory Slope: ${stats.slope >= 0 ? '+' : ''}${stats.slope.toFixed(2)}%/s`,
+    ``,
+    `DIAGNOSIS:`,
+    diagEl ? diagEl.textContent.trim() : 'Cohort telemetry captured.',
+    `=======================================================`
+  ].join("\n");
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(report).then(() => {
+      showToast('Interval Report copied to clipboard!', '✓');
+    });
+  } else {
+    showToast('Interval Report copied!');
+  }
+}
+
+function pushChartPoint(timestamp, focus, mean, facing, fatiguePct, frameData = null) {
+  // Always buffer full telemetry packet into masterTelemetryStream
+  masterTelemetryStream.labels.push(timestamp);
+  masterTelemetryStream.focus.push(focus);
+  masterTelemetryStream.mean.push(mean);
+  masterTelemetryStream.facing.push(facing);
+  masterTelemetryStream.fatigue.push(fatiguePct);
+  masterTelemetryStream.frames.push(frameData || (sessionLogs.length > 0 ? sessionLogs[sessionLogs.length - 1] : null));
+
+  // Update Legend Values in real-time
+  const legFocus = document.getElementById('leg-focus');
+  const legMean = document.getElementById('leg-mean');
+  const legFacing = document.getElementById('leg-facing');
+  const legMar = document.getElementById('leg-mar');
+  if (legFocus) legFocus.textContent = `${focus.toFixed(1)}%`;
+  if (legMean) legMean.textContent = `${mean.toFixed(1)}%`;
+  if (legFacing) legFacing.textContent = `${facing.toFixed(1)}%`;
+  if (legMar) legMar.textContent = `${(fatiguePct / 100 * 0.80).toFixed(2)}`;
+
+  if (!chartInstance) return;
+
+  if (!chartZoomState.isZoomed) {
+    // Normal Live Streaming Mode: display sliding window of last MAX_HISTORY_POINTS
+    const len = masterTelemetryStream.labels.length;
+    const start = Math.max(0, len - MAX_HISTORY_POINTS);
+
+    chartInstance.data.labels = masterTelemetryStream.labels.slice(start);
+    chartInstance.data.datasets[0].data = masterTelemetryStream.focus.slice(start);
+    chartInstance.data.datasets[1].data = masterTelemetryStream.mean.slice(start);
+    chartInstance.data.datasets[2].data = masterTelemetryStream.facing.slice(start);
+    chartInstance.data.datasets[3].data = masterTelemetryStream.fatigue.slice(start);
+
+    chartInstance.update('none');
+  } else {
+    // Zoomed / Deep Insight Mode: maintain user's cropped interval and buffer incoming points
+    chartZoomState.bufferedCount++;
+    const bufCount = document.getElementById('timeline-buffered-count');
+    if (bufCount) bufCount.textContent = chartZoomState.bufferedCount;
+  }
 }
 
 // ============================================================================
@@ -1538,6 +2316,84 @@ function initActionHandlers() {
       updateAIPulseCard();
     });
   }
+
+  // 7. Temporal Curve Deep Insight & Zoom Controls
+  const btnOpenDeep = document.getElementById('btn-open-deep-insight');
+  if (btnOpenDeep) {
+    btnOpenDeep.addEventListener('click', () => openDeepInsightModal());
+  }
+
+  const btnHeaderReset = document.getElementById('btn-header-reset-zoom');
+  if (btnHeaderReset) {
+    btnHeaderReset.addEventListener('click', () => {
+      resetChartZoom();
+      showToast('Reset to Live Stream', '⟲');
+    });
+  }
+
+  // Floating HUD Bar Action Buttons
+  const btnHudModal = document.getElementById('btn-hud-modal');
+  if (btnHudModal) {
+    btnHudModal.addEventListener('click', () => openDeepInsightModal());
+  }
+
+  const btnHudCopy = document.getElementById('btn-hud-copy');
+  if (btnHudCopy) {
+    btnHudCopy.addEventListener('click', () => {
+      if (chartZoomState.sliceStats) copySliceReport(chartZoomState.sliceStats);
+    });
+  }
+
+  const btnHudReset = document.getElementById('btn-hud-reset');
+  if (btnHudReset) {
+    btnHudReset.addEventListener('click', () => {
+      resetChartZoom();
+      showToast('Reset to Live Stream', '⟲');
+    });
+  }
+
+  // Deep Insight Modal Action Buttons
+  const btnCloseDeepModal = document.getElementById('btn-close-deep-modal');
+  if (btnCloseDeepModal) btnCloseDeepModal.addEventListener('click', closeDeepInsightModal);
+
+  const btnModalClose = document.getElementById('btn-modal-close');
+  if (btnModalClose) btnModalClose.addEventListener('click', closeDeepInsightModal);
+
+  const btnModalResetLive = document.getElementById('btn-modal-reset-live');
+  if (btnModalResetLive) {
+    btnModalResetLive.addEventListener('click', () => {
+      closeDeepInsightModal();
+      resetChartZoom();
+      showToast('Reset to Live Stream', '⟲');
+    });
+  }
+
+  const btnModalExportSlice = document.getElementById('btn-modal-export-slice');
+  if (btnModalExportSlice) {
+    btnModalExportSlice.addEventListener('click', () => {
+      exportSliceToCsv(chartZoomState.sliceStats);
+    });
+  }
+
+  const btnModalCopySummary = document.getElementById('btn-modal-copy-summary');
+  if (btnModalCopySummary) {
+    btnModalCopySummary.addEventListener('click', () => {
+      copySliceReport(chartZoomState.sliceStats);
+    });
+  }
+
+  // Global Keyboard Escape Handler
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const modalBackdrop = document.getElementById('deep-insight-modal-backdrop');
+      if (modalBackdrop && modalBackdrop.classList.contains('show')) {
+        closeDeepInsightModal();
+      } else if (chartZoomState.isZoomed) {
+        resetChartZoom();
+        showToast('Reset to Live Telemetry Stream', '⟲');
+      }
+    }
+  });
 }
 
 // ============================================================================
@@ -1565,13 +2421,7 @@ function handleTelemetryPayload(payload) {
     if (s.id > maxSessionStudents) maxSessionStudents = s.id;
   });
 
-  // Push into Chart.js (with smooth facing curve)
-  const peakMar = students.length > 0 ? Math.max(...students.map(s => Number(s.mar || 0))) : (yawn || 0);
-  const fatiguePct = Math.min(100, (peakMar / 0.80) * 100);
-  pushChartPoint(timestamp, overall, engine.sessionMean, Math.round(engine.current.facing), fatiguePct);
-
-  // Store in session logs for CSV export
-  sessionLogs.push({
+  const frameData = {
     timestamp,
     overall,
     count,
@@ -1588,7 +2438,15 @@ function handleTelemetryPayload(payload) {
       yaw: s.yaw,
       pitch: s.pitch
     }))
-  });
+  };
+
+  // Store in session logs for CSV export
+  sessionLogs.push(frameData);
+
+  // Push into Chart.js (with smooth facing curve and frameData attachment)
+  const peakMar = students.length > 0 ? Math.max(...students.map(s => Number(s.mar || 0))) : (yawn || 0);
+  const fatiguePct = Math.min(100, (peakMar / 0.80) * 100);
+  pushChartPoint(timestamp, overall, engine.sessionMean, Math.round(engine.current.facing), fatiguePct, frameData);
 
   // State Transition Event Logs with 3.5s anti-jitter debounce & rich details
   const nowMs = Date.now();

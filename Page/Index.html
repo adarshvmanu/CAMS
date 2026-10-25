@@ -329,11 +329,17 @@
                 <span class="pane-title">Classroom Engagement &amp; Telemetry Curve</span>
                 <span class="pane-subtitle">· Real-Time Trend</span>
               </div>
-              <div class="curve-segmented-filter">
-                <button class="filter-tab-btn active" data-filter="all">All</button>
-                <button class="filter-tab-btn" data-filter="focus">Focus</button>
-                <button class="filter-tab-btn" data-filter="gaze">Gaze</button>
-                <button class="filter-tab-btn" data-filter="fatigue">Fatigue</button>
+              <div class="curve-header-actions">
+                <div class="curve-segmented-filter">
+                  <button class="filter-tab-btn active" data-filter="all">All</button>
+                  <button class="filter-tab-btn" data-filter="focus">Focus</button>
+                  <button class="filter-tab-btn" data-filter="gaze">Gaze</button>
+                  <button class="filter-tab-btn" data-filter="fatigue">Fatigue</button>
+                </div>
+                <div class="curve-zoom-actions">
+                  <button id="btn-header-reset-zoom" class="filter-tab-btn btn-header-reset hidden" title="Reset Zoom to Live Stream (Esc or Double-Click)">⟲ Reset Zoom</button>
+                  <button id="btn-open-deep-insight" class="filter-tab-btn btn-deep-insight-trigger" title="Inspect Telemetry Deep Insight Studio">🔍 Deep Insight</button>
+                </div>
               </div>
             </div>
 
@@ -358,14 +364,46 @@
             </div>
 
             <!-- Chart Canvas (Stretches to fill entire height cleanly) -->
-            <div class="chart-canvas-container">
+            <div class="chart-canvas-container" id="chart-canvas-wrapper">
               <canvas id="master-chart-canvas"></canvas>
+
+              <!-- Interactive Crop Selection Marquee Box -->
+              <div id="chart-crop-marquee" class="chart-crop-marquee hidden">
+                <div class="crop-corner top-left"></div>
+                <div class="crop-corner top-right"></div>
+                <div class="crop-corner bottom-left"></div>
+                <div class="crop-corner bottom-right"></div>
+                <div id="crop-badge" class="crop-badge mono tabular-nums">Selecting window...</div>
+              </div>
+
+              <!-- Floating Deep Insight Floating HUD Bar (Slides down on zoom) -->
+              <div id="curve-insight-hud" class="curve-insight-hud hidden">
+                <div class="insight-hud-left">
+                  <span class="insight-badge"><span class="pulse-indicator"></span> Deep Insight · <strong id="hud-zoom-level">1.0x</strong></span>
+                  <span class="insight-range-pill mono" id="hud-time-range">--:--:-- ➔ --:--:-- (<span id="hud-duration">0s</span>)</span>
+                  <div class="insight-metrics-pills">
+                    <span class="hud-pill">Mean: <strong id="hud-avg-focus">--.-%</strong></span>
+                    <span class="hud-pill">Min/Max: <strong id="hud-min-max">-- / --</strong></span>
+                    <span class="hud-pill">Gaze: <strong id="hud-gaze">--.-%</strong></span>
+                    <span class="hud-pill">Trend: <strong id="hud-trend">--</strong></span>
+                  </div>
+                </div>
+                <div class="insight-hud-right">
+                  <button id="btn-hud-modal" class="hud-action-btn" title="Open Forensic Deep Insight Modal">⤢ Deep Studio</button>
+                  <button id="btn-hud-copy" class="hud-action-btn" title="Copy Slice Telemetry to Clipboard">📋 Copy Slice</button>
+                  <button id="btn-hud-reset" class="hud-action-btn hud-reset-btn" title="Reset Zoom to Live Stream (Double-Click or Esc)">⟲ Live Stream</button>
+                </div>
+              </div>
             </div>
 
             <!-- Real Telemetry Status Footer (Aligned with Left Pane Layer Controls) -->
             <div class="timeline-footer-bar">
-              <span class="timeline-footer-desc">100-pt Sliding Window · 4-Trace Telemetry Stream</span>
+              <div class="timeline-footer-desc-group">
+                <span id="timeline-footer-desc" class="timeline-footer-desc">100-pt Sliding Window · 4-Trace Telemetry Stream</span>
+                <span class="timeline-zoom-hint mono">💡 Drag to crop &amp; zoom · Double-click to inspect · Esc to reset</span>
+              </div>
               <div class="timeline-footer-stats mono tabular-nums">
+                <span id="timeline-buffer-pill" class="timeline-buffer-pill hidden">● Live Buffering (+<span id="timeline-buffered-count">0</span>)</span>
                 <span>Elapsed: <strong id="timeline-session-elapsed">00:00:00</strong></span>
                 <span class="timeline-stat-sep">·</span>
                 <span><strong id="timeline-frame-counter">0</strong> frames processed</span>
@@ -518,6 +556,141 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- COMPREHENSIVE TELEMETRY DEEP INSIGHT STUDIO MODAL -->
+  <div id="deep-insight-modal-backdrop" class="modal-backdrop">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header modal-header-studio">
+        <div class="modal-title-wrap">
+          <div class="modal-emblem emblem-deep-insight">
+            <span class="emblem-glyph">🔍</span>
+          </div>
+          <div>
+            <div class="modal-title-row">
+              <h2 class="modal-title">Classroom Telemetry Deep Insight Studio</h2>
+              <span id="modal-slice-tag" class="modal-tag mono tabular-nums">Interval: --:--:-- ➔ --:--:--</span>
+            </div>
+            <p class="modal-subtitle">Forensic micro-interval biometric inspection, kinematic trajectory analysis, and pedagogical diagnosis.</p>
+          </div>
+        </div>
+        <button id="btn-close-deep-modal" class="modal-close-btn" title="Close (Esc)">&times;</button>
+      </div>
+
+      <div class="modal-body modal-studio-body">
+        <!-- 4-Card Analytical KPI Matrix -->
+        <div class="modal-kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-label">Interval Mean Focus</span>
+            <div class="kpi-val-row">
+              <strong id="modal-kpi-mean" class="kpi-value mono tabular-nums">--.-%</strong>
+              <span id="modal-kpi-delta" class="kpi-sub mono tabular-nums">-- vs session</span>
+            </div>
+            <span id="modal-kpi-range" class="kpi-desc mono">Min: --% · Max: --% · StdDev: &plusmn;--%</span>
+          </div>
+
+          <div class="kpi-card">
+            <span class="kpi-label">Board Gaze Alignment</span>
+            <div class="kpi-val-row">
+              <strong id="modal-kpi-facing" class="kpi-value mono tabular-nums">--.-%</strong>
+              <span class="kpi-tag-status" id="modal-kpi-facing-tag">Frontal Sync</span>
+            </div>
+            <span id="modal-kpi-gaze-desc" class="kpi-desc">Head yaw/pitch within &plusmn;26&deg; lecture cone</span>
+          </div>
+
+          <div class="kpi-card">
+            <span class="kpi-label">Fatigue &amp; Oral Kinematics</span>
+            <div class="kpi-val-row">
+              <strong id="modal-kpi-fatigue" class="kpi-value mono tabular-nums">0.00 MAR</strong>
+              <span class="kpi-tag-status" id="modal-kpi-fatigue-tag">Normal</span>
+            </div>
+            <span id="modal-kpi-fatigue-desc" class="kpi-desc">0 yawn events &middot; Eye closure rate normal</span>
+          </div>
+
+          <div class="kpi-card">
+            <span class="kpi-label">Engagement Trajectory</span>
+            <div class="kpi-val-row">
+              <strong id="modal-kpi-trajectory" class="kpi-value mono tabular-nums">--</strong>
+              <span class="kpi-tag-status" id="modal-kpi-traj-tag">Slope</span>
+            </div>
+            <span id="modal-kpi-traj-desc" class="kpi-desc">Rate of focus change across interval</span>
+          </div>
+        </div>
+
+        <!-- High-Resolution Telemetry Waveform -->
+        <div class="modal-chart-section">
+          <div class="modal-chart-header">
+            <span class="modal-section-title">High-Definition Telemetry Slice Waveform</span>
+            <div class="modal-legend-strip">
+              <span class="legend-chip"><span class="chip-dot" style="background:#18181B"></span> Focus</span>
+              <span class="legend-chip"><span class="chip-dot" style="background:#A1A1AA"></span> Mean</span>
+              <span class="legend-chip"><span class="chip-dot" style="background:#0071E3"></span> Board Gaze</span>
+              <span class="legend-chip"><span class="chip-dot" style="background:#FF3B30"></span> Mouth Ratio (MAR)</span>
+            </div>
+          </div>
+          <div class="modal-chart-wrapper">
+            <canvas id="modal-chart-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Deterministic Pedagogical Diagnostic Box -->
+        <div class="modal-diagnosis-box">
+          <div class="diagnosis-header">
+            <span class="diagnosis-icon">💡</span>
+            <strong class="diagnosis-title">Pedagogical Anomaly &amp; Kinematic Diagnosis</strong>
+          </div>
+          <p id="modal-diagnosis-text" class="diagnosis-body">
+            Analyzing telemetry telemetry points for this interval...
+          </p>
+        </div>
+
+        <!-- Frame-by-Frame Forensic Ledger Table -->
+        <div class="modal-table-section">
+          <div class="modal-table-header">
+            <span class="modal-section-title">Forensic Frame Ledger (<span id="modal-frame-count">0</span> samples)</span>
+            <span class="modal-table-subtitle">Individual biometric optical measurements captured during interval</span>
+          </div>
+          <div class="modal-table-scroll">
+            <table class="swiss-ledger-table modal-ledger-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Active Focus</th>
+                  <th>Head Pitch &amp; Yaw</th>
+                  <th>Gaze Alignment</th>
+                  <th>Ocular Ratio (EAR)</th>
+                  <th>Mouth Ratio (MAR)</th>
+                  <th>Status Classification</th>
+                </tr>
+              </thead>
+              <tbody id="modal-ledger-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal Action Footer -->
+        <div class="modal-actions modal-studio-actions">
+          <div class="modal-actions-left">
+            <button type="button" id="btn-modal-export-slice" class="btn-modal-secondary">
+              <span>⬇ Export Slice as CSV</span>
+            </button>
+            <button type="button" id="btn-modal-copy-summary" class="btn-modal-secondary">
+              <span>📋 Copy Interval Report</span>
+            </button>
+          </div>
+          <div class="modal-actions-right">
+            <button type="button" id="btn-modal-reset-live" class="btn-modal-secondary">
+              <span>⟲ Return to Live Stream</span>
+            </button>
+            <button type="button" id="btn-modal-close" class="btn-modal-primary">
+              <span>Done (Esc)</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
