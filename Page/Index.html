@@ -260,30 +260,18 @@
               </div>
             </div>
 
-            <!-- Chart Canvas -->
+            <!-- Chart Canvas (Stretches to fill entire height cleanly) -->
             <div class="chart-canvas-container">
               <canvas id="master-chart-canvas"></canvas>
             </div>
 
-            <!-- Dynamic Lecture Syllabus Sync Scrubber -->
-            <div class="syllabus-sync-wrapper">
-              <div class="syllabus-micro-header">Lecture Syllabus Sync</div>
-              <div class="syllabus-scrubber-grid">
-                <div class="syllabus-segment-card">
-                  <span id="syllabus-card-1-title" class="syllabus-card-title">I. Setup &amp; Roll Call</span>
-                  <span id="syllabus-card-1-sub" class="syllabus-card-sub mono">Session Initialized</span>
-                </div>
-                <div class="syllabus-segment-card active">
-                  <span id="syllabus-card-2-title" class="syllabus-card-title">
-                    <span id="syllabus-active-dot" class="dot-indicator green"></span>
-                    <span id="syllabus-active-topic-name">II. Active Instruction</span>
-                  </span>
-                  <span id="syllabus-card-2-sub" class="syllabus-card-sub mono">Live Telemetry Synced</span>
-                </div>
-                <div class="syllabus-segment-card">
-                  <span id="syllabus-card-3-title" class="syllabus-card-title">III. Q&amp;A &amp; Synthesis</span>
-                  <span id="syllabus-card-3-sub" class="syllabus-card-sub mono">Upcoming Segment</span>
-                </div>
+            <!-- Real Telemetry Status Footer (Aligned with Left Pane Layer Controls) -->
+            <div class="timeline-footer-bar">
+              <span class="timeline-footer-desc">100-pt Sliding Window · 4-Trace Telemetry Stream</span>
+              <div class="timeline-footer-stats mono tabular-nums">
+                <span>Elapsed: <strong id="timeline-session-elapsed">00:00:00</strong></span>
+                <span class="timeline-stat-sep">·</span>
+                <span><strong id="timeline-frame-counter">0</strong> frames processed</span>
               </div>
             </div>
           </div>
@@ -406,14 +394,9 @@
             <input type="text" id="input-room" class="form-input" placeholder="e.g. Lecture Hall 204" required />
           </div>
           <div class="form-row">
-            <label class="form-label" for="input-instructor">Instructor / Lead</label>
+            <label class="form-label" for="input-instructor">Instructor / Lead (Optional)</label>
             <input type="text" id="input-instructor" class="form-input" placeholder="e.g. Prof. Adarsh Manu" />
           </div>
-        </div>
-
-        <div class="form-row">
-          <label class="form-label" for="input-topic">Lecture Topic / Focus</label>
-          <input type="text" id="input-topic" class="form-input" placeholder="e.g. Recurrence Relations &amp; Dynamic Programming" />
         </div>
 
         <div class="modal-actions">

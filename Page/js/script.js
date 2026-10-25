@@ -45,13 +45,11 @@ function saveSessionConfig(config) {
 function applySessionConfig() {
   const courseEl = document.getElementById('breadcrumb-course');
   const roomEl = document.getElementById('breadcrumb-room');
-  const topicEl = document.getElementById('syllabus-active-topic-name');
 
   if (courseEl) courseEl.textContent = sessionConfig.className || 'Class Session';
   if (roomEl) roomEl.textContent = sessionConfig.room ? `· ${sessionConfig.room}` : '· Optical Studio';
-  if (topicEl) topicEl.textContent = sessionConfig.topic ? `II. ${sessionConfig.topic}` : 'II. Core Instruction';
 
-  updateSyllabusPhases();
+  updateSessionStatusFooter();
 }
 
 function openSessionModal(isEdit = false) {
@@ -60,14 +58,12 @@ function openSessionModal(isEdit = false) {
   const inputClass = document.getElementById('input-class-name');
   const inputRoom = document.getElementById('input-room');
   const inputInstructor = document.getElementById('input-instructor');
-  const inputTopic = document.getElementById('input-topic');
 
   if (!backdrop) return;
 
   if (inputClass) inputClass.value = sessionConfig.className || '';
   if (inputRoom) inputRoom.value = sessionConfig.room || '';
   if (inputInstructor) inputInstructor.value = sessionConfig.instructor || '';
-  if (inputTopic) inputTopic.value = sessionConfig.topic || '';
 
   if (btnCancel) {
     btnCancel.style.display = isEdit ? 'inline-block' : 'none';
@@ -114,13 +110,11 @@ function initSessionSetup() {
       const className = document.getElementById('input-class-name')?.value.trim() || 'Class Session';
       const room = document.getElementById('input-room')?.value.trim() || 'Classroom';
       const instructor = document.getElementById('input-instructor')?.value.trim() || '';
-      const topic = document.getElementById('input-topic')?.value.trim() || 'General Lecture';
 
       saveSessionConfig({
         className,
         room,
         instructor,
-        topic,
         startTime: sessionConfig.startTime || Date.now()
       });
 
@@ -131,27 +125,19 @@ function initSessionSetup() {
   }
 }
 
-// Dynamic Lecture Syllabus Scrubber based on real session elapsed time
-function updateSyllabusPhases() {
-  const start = new Date(sessionConfig.startTime || Date.now());
-  const now = new Date();
-  const elapsedMin = Math.max(0, Math.floor((now - start) / 60000));
+// Real telemetry session elapsed time & frames counter
+function updateSessionStatusFooter() {
+  const start = sessionConfig.startTime || Date.now();
+  const diffSec = Math.max(0, Math.floor((Date.now() - start) / 1000));
+  const hrs = String(Math.floor(diffSec / 3600)).padStart(2, '0');
+  const mins = String(Math.floor((diffSec % 3600) / 60)).padStart(2, '0');
+  const secs = String(diffSec % 60).padStart(2, '0');
 
-  const formatClock = (d) => {
-    return d.toTimeString().split(' ')[0].substring(0, 5);
-  };
+  const elapsedEl = document.getElementById('timeline-session-elapsed');
+  const framesEl = document.getElementById('timeline-frame-counter');
 
-  const endPhase1 = new Date(start.getTime() + 8 * 60000);
-
-  const card1Sub = document.getElementById('syllabus-card-1-sub');
-  const card2Sub = document.getElementById('syllabus-card-2-sub');
-
-  if (card1Sub) {
-    card1Sub.textContent = `${formatClock(start)} – ${formatClock(endPhase1)} · Roll Call`;
-  }
-  if (card2Sub) {
-    card2Sub.textContent = `${formatClock(endPhase1)} – Present · Active (${elapsedMin}m)`;
-  }
+  if (elapsedEl) elapsedEl.textContent = `${hrs}:${mins}:${secs}`;
+  if (framesEl) framesEl.textContent = String(engine.frameCount);
 }
 
 // ============================================================================
@@ -863,8 +849,8 @@ function runTabularThrottle() {
   // 5. Render Biometric Ledger Table (REAL PARTICIPANTS ONLY)
   renderBiometricLedgerTable(target.students);
 
-  // 6. Update Dynamic Syllabus Phase Times
-  updateSyllabusPhases();
+  // 6. Update Real Session Elapsed Time & Telemetry Counters
+  updateSessionStatusFooter();
 }
 
 // ============================================================================
@@ -1193,12 +1179,12 @@ function initActionHandlers() {
 
       const briefText = [
         `CAMS Session Brief — ${sessionConfig.className || 'Classroom Session'} (${sessionConfig.room || 'Hall'})`,
-        `• Instructor: ${sessionConfig.instructor || 'Unspecified'} | Topic: ${sessionConfig.topic || 'General Lecture'}`,
+        sessionConfig.instructor ? `• Lead Instructor: ${sessionConfig.instructor}` : null,
         `• Rolling Mean Focus: ${mean.toFixed(1)}% | Instantaneous Focus: ${cur.focus.toFixed(1)}% (${delta >= 0 ? '+' : ''}${delta.toFixed(1)}% vs mean)`,
         `• Board Alignment: ${cur.facing.toFixed(1)}% | Active Pose: Pitch ${pitch}°, Yaw ${yaw}°`,
         `• Peak Fatigue Vector: MAR ${cur.mar.toFixed(2)} | EAR ${cur.ear.toFixed(2)} (Gate: ${(engine.gateHoldMs / 1000).toFixed(1)}s / 2.0s)`,
         `• AI Pedagogical Takeaway: ${document.getElementById('ai-pulse-headline')?.textContent || 'Cohort stable'}`
-      ].join("\n");
+      ].filter(Boolean).join("\n");
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(briefText).then(() => {
