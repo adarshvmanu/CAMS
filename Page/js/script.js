@@ -1,4 +1,4 @@
-// CAMS Studio - Adaptive Multi-Student Telemetry Engine & Dynamic Visualization
+// CAMS Studio - Real-Time Telemetry Engine & Dynamic Visualization
 
 const MAX_POINTS = 100;
 let sessionLogs = [];
@@ -13,7 +13,9 @@ const traces = [
     y: [],
     mode: 'lines',
     type: 'scatter',
-    line: { color: '#10B981', width: 2.5, shape: 'spline' }
+    line: { color: '#10B981', width: 2.5, shape: 'spline' },
+    fill: 'tozeroy',
+    fillcolor: 'rgba(16, 185, 129, 0.06)'
   },
   {
     name: 'Facing Board %',
@@ -29,7 +31,7 @@ const traces = [
     y: [],
     mode: 'lines',
     type: 'scatter',
-    line: { color: '#F43F5E', width: 2, dash: 'dot' }
+    line: { color: '#EF4444', width: 1.8, dash: 'dot' }
   },
   {
     name: 'Yawn %',
@@ -37,29 +39,29 @@ const traces = [
     y: [],
     mode: 'lines',
     type: 'scatter',
-    line: { color: '#F59E0B', width: 2, dash: 'dot' }
+    line: { color: '#F59E0B', width: 1.8, dash: 'dot' }
   }
 ];
 
 const layout = {
   autosize: true,
-  margin: { l: 35, r: 20, t: 25, b: 35 },
-  paper_bgcolor: '#1E293B',
-  plot_bgcolor: '#1E293B',
-  font: { family: 'Inter, sans-serif', color: '#94A3B8', size: 10 },
-  legend: { orientation: 'h', x: 0, y: 1.15, font: { color: '#F8FAFC', size: 10 } },
+  margin: { l: 38, r: 18, t: 24, b: 32 },
+  paper_bgcolor: '#0F172A',
+  plot_bgcolor: '#0F172A',
+  font: { family: 'Inter, sans-serif', color: '#64748B', size: 10 },
+  legend: { orientation: 'h', x: 0, y: 1.16, font: { color: '#CBD5E1', size: 10 } },
   xaxis: {
     showgrid: true,
-    gridcolor: '#334155',
+    gridcolor: 'rgba(255, 255, 255, 0.05)',
     zeroline: false,
-    tickfont: { color: '#94A3B8' }
+    tickfont: { color: '#64748B' }
   },
   yaxis: {
     range: [0, 105],
     showgrid: true,
-    gridcolor: '#334155',
+    gridcolor: 'rgba(255, 255, 255, 0.05)',
     zeroline: false,
-    tickfont: { color: '#94A3B8' }
+    tickfont: { color: '#64748B' }
   }
 };
 
@@ -83,6 +85,34 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
+// Toast notification helper
+function showToast(msg, icon = '🎯') {
+  const toast = document.getElementById('toast-notice');
+  const msgEl = document.getElementById('toast-msg');
+  const iconEl = document.getElementById('toast-icon');
+  if (!toast) return;
+
+  msgEl.textContent = msg;
+  iconEl.textContent = icon;
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2800);
+}
+
+// Calibration Button Handler
+document.getElementById('btn-calibrate').addEventListener('click', function() {
+  fetch('/api/calibrate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then(res => res.json())
+    .then(data => {
+      showToast('Camera Calibrated! Normal posture set to Forward Facing.');
+      logIncident('Head pose baseline auto-calibrated to current posture', 'good');
+    })
+    .catch(err => {
+      showToast('Calibration failed. Make sure face is in view.', '⚠️');
+    });
+});
+
 // Capacity Selector change handler
 const capacitySelect = document.getElementById('capacity-select');
 if (capacitySelect) {
@@ -93,8 +123,8 @@ if (capacitySelect) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ max_faces: maxFaces, mode: val })
-    }).catch(err => console.error('Failed to update capacity config:', err));
-    logIncident(`Classroom capacity set to: ${val === 'auto' ? 'Auto-Adaptive' : val + ' Students'}`, 'Attentive');
+    }).catch(err => console.error('Failed to update capacity:', err));
+    logIncident(`Classroom capacity mode set to: ${val === 'auto' ? 'Auto-Adaptive' : val + ' Seats'}`, 'good');
   });
 }
 
@@ -112,93 +142,120 @@ function renderDynamicRoster(students) {
   container.style.display = 'grid';
   emptyState.style.display = 'none';
 
-  // Track max students observed in this session for CSV export
   students.forEach(s => {
     if (s.id > maxSessionStudents) maxSessionStudents = s.id;
   });
 
-  // Track existing DOM cards
   const existingCards = {};
-  container.querySelectorAll('.seat-card').forEach(card => {
+  container.querySelectorAll('.student-card').forEach(card => {
     const id = parseInt(card.getAttribute('data-id'), 10);
     existingCards[id] = card;
   });
 
-  // Render or update cards for each active student
   students.forEach(student => {
     let cardEl = existingCards[student.id];
 
     if (!cardEl) {
       cardEl = document.createElement('div');
-      cardEl.className = 'seat-card active';
+      cardEl.className = 'student-card';
       cardEl.setAttribute('data-id', student.id);
       cardEl.innerHTML = `
-        <div class="seat-header">
-          <span class="seat-name">Student #${student.id}</span>
-          <span class="seat-status-pill">Active</span>
-        </div>
-        <div class="seat-score-row">
-          <span class="seat-score">—</span>
-          <span class="seat-score-label">ATTENTION</span>
-        </div>
-        <div class="seat-metrics">
-          <div class="metric-bar-row">
-            <span>EAR (Eyes)</span>
-            <span class="ear-val">—</span>
-            <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
+        <div class="student-card-header">
+          <div class="student-profile">
+            <div class="student-avatar">#${student.id}</div>
+            <span class="student-name">Student #${student.id}</span>
           </div>
-          <div class="metric-bar-row">
-            <span>MAR (Mouth)</span>
-            <span class="mar-val">—</span>
-            <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
+          <span class="status-tag good">Attentive</span>
+        </div>
+        <div class="student-score-row">
+          <span class="student-score-val">100%</span>
+          <div class="student-score-bar-bg">
+            <div class="student-score-bar-fill" style="width: 100%; background-color: var(--status-good);"></div>
           </div>
+        </div>
+        <div class="student-meters">
+          <div class="meter-col">
+            <div class="meter-label-row">
+              <span>Blink (EAR)</span>
+              <span class="meter-val ear-val">0.28</span>
+            </div>
+            <div class="meter-bar"><div class="meter-fill ear-fill" style="width: 70%; background-color: var(--accent-sky);"></div></div>
+          </div>
+          <div class="meter-col">
+            <div class="meter-label-row">
+              <span>Mouth (MAR)</span>
+              <span class="meter-val mar-val">0.08</span>
+            </div>
+            <div class="meter-bar"><div class="meter-fill mar-fill" style="width: 15%; background-color: var(--accent-sky);"></div></div>
+          </div>
+        </div>
+        <div class="meter-label-row" style="font-size: 0.65rem; color: var(--text-muted); margin-top: -2px;">
+          <span>Gaze Angle:</span>
+          <span class="meter-val gaze-val">0° / 0°</span>
         </div>
       `;
       container.appendChild(cardEl);
     }
 
-    // Update Card Values
-    const scoreEl = cardEl.querySelector('.seat-score');
-    const statusPill = cardEl.querySelector('.seat-status-pill');
+    // Update Elements
+    const scoreVal = cardEl.querySelector('.student-score-val');
+    const scoreFill = cardEl.querySelector('.student-score-bar-fill');
+    const statusTag = cardEl.querySelector('.status-tag');
     const earVal = cardEl.querySelector('.ear-val');
     const marVal = cardEl.querySelector('.mar-val');
     const earFill = cardEl.querySelector('.ear-fill');
     const marFill = cardEl.querySelector('.mar-fill');
+    const gazeVal = cardEl.querySelector('.gaze-val');
 
     const score = Number(student.score || 0);
-    scoreEl.textContent = `${score.toFixed(0)}%`;
+    scoreVal.textContent = `${score.toFixed(0)}%`;
+    scoreFill.style.width = `${Math.max(score, 5)}%`;
 
-    if (score >= 80) scoreEl.style.color = '#10B981';
-    else if (score >= 50) scoreEl.style.color = '#F59E0B';
-    else scoreEl.style.color = '#F43F5E';
+    if (score >= 80) {
+      scoreVal.style.color = 'var(--status-good)';
+      scoreFill.style.backgroundColor = 'var(--status-good)';
+    } else if (score >= 50) {
+      scoreVal.style.color = 'var(--status-warn)';
+      scoreFill.style.backgroundColor = 'var(--status-warn)';
+    } else {
+      scoreVal.style.color = 'var(--status-crit)';
+      scoreFill.style.backgroundColor = 'var(--status-crit)';
+    }
 
-    statusPill.textContent = student.status || 'Active';
-    statusPill.className = 'seat-status-pill';
-    if (student.status === 'Attentive') statusPill.classList.add('good');
-    else if (student.status === 'Sleeping') statusPill.classList.add('crit');
-    else statusPill.classList.add('warn');
+    statusTag.textContent = student.status || 'Active';
+    statusTag.className = 'status-tag';
+    if (student.status === 'Attentive') statusTag.classList.add('good');
+    else if (student.status === 'Sleeping') statusTag.classList.add('crit');
+    else statusTag.classList.add('warn');
 
     const ear = Number(student.ear || 0);
     const mar = Number(student.mar || 0);
-    earVal.textContent = ear.toFixed(2);
-    marVal.textContent = mar.toFixed(1);
+    const yaw = Number(student.yaw || 0);
+    const pitch = Number(student.pitch || 0);
 
+    earVal.textContent = ear.toFixed(2);
+    marVal.textContent = mar.toFixed(2);
+    gazeVal.textContent = `Yaw ${yaw > 0 ? '+' : ''}${yaw.toFixed(0)}° | Pitch ${pitch > 0 ? '+' : ''}${pitch.toFixed(0)}°`;
+
+    // EAR meter: normal ~0.25 (scale 0 to 0.40)
     const earPct = Math.min(Math.max((ear / 0.40) * 100, 5), 100);
     earFill.style.width = `${earPct}%`;
-    earFill.style.backgroundColor = (ear < 0.22) ? '#F43F5E' : '#38BDF8';
+    earFill.style.backgroundColor = (ear < 0.16) ? 'var(--status-crit)' : 'var(--accent-sky)';
 
-    const marPct = Math.min(Math.max((mar / 5.0) * 100, 5), 100);
+    // MAR meter: normal ~0.08 (scale 0 to 0.60)
+    const marPct = Math.min(Math.max((mar / 0.60) * 100, 5), 100);
     marFill.style.width = `${marPct}%`;
-    marFill.style.backgroundColor = (mar < 1.8) ? '#F59E0B' : '#38BDF8';
+    marFill.style.backgroundColor = (mar > 0.45) ? 'var(--status-warn)' : 'var(--accent-sky)';
 
-    // Incident logging
+    // Incident tracking
     if (prevStudentStates[student.id] && prevStudentStates[student.id] !== student.status) {
-      logIncident(`Student #${student.id} transitioned to ${student.status}`, student.status);
+      const tagType = student.status === 'Attentive' ? 'good' : (student.status === 'Sleeping' ? 'crit' : 'warn');
+      logIncident(`Student #${student.id} state changed to: ${student.status}`, tagType);
     }
     prevStudentStates[student.id] = student.status;
   });
 
-  // Remove cards of students who left
+  // Remove cards for students who departed
   const activeIds = new Set(students.map(s => s.id));
   Object.keys(existingCards).forEach(idStr => {
     const id = parseInt(idStr, 10);
@@ -227,7 +284,8 @@ function updateDashboard(data) {
   document.getElementById('kpi-facing').textContent = `${facing.toFixed(0)}%`;
   document.getElementById('kpi-drowsy').textContent = `${sleep.toFixed(0)}% / ${yawn.toFixed(0)}%`;
   document.getElementById('roster-active-count').textContent = `${count} Active`;
-  document.getElementById('video-feed-stats').textContent = `${count} student(s) detected`;
+  document.getElementById('video-feed-stats').textContent = `${count} face(s) tracked in real time`;
+  document.getElementById('overlay-face-count').textContent = `${count} ACTIVE`;
 
   // 2. Timeline Sliding Window
   Plotly.extendTraces(
@@ -252,30 +310,28 @@ function updateDashboard(data) {
     facing,
     sleep,
     yawn,
-    students: students.map(s => ({ id: s.id, score: s.score, status: s.status, ear: s.ear, mar: s.mar }))
+    students: students.map(s => ({ id: s.id, score: s.score, status: s.status, ear: s.ear, mar: s.mar, yaw: s.yaw, pitch: s.pitch }))
   });
 }
 
-function logIncident(text, status) {
+function logIncident(text, type = 'good') {
   const list = document.getElementById('events-list');
   const row = document.createElement('div');
-  row.className = 'event-row';
-  if (status === 'Sleeping') row.classList.add('crit');
-  else if (status !== 'Attentive') row.classList.add('warn');
+  row.className = `event-row ${type}`;
 
   const now = new Date().toLocaleTimeString();
   row.innerHTML = `<span>${text}</span><span class="event-time">${now}</span>`;
   list.prepend(row);
 
-  while (list.children.length > 20) {
+  while (list.children.length > 25) {
     list.removeChild(list.lastChild);
   }
 }
 
-// Export CSV handler (Dynamic for any number of students)
+// Export CSV handler
 document.getElementById('btn-export-csv').addEventListener('click', function() {
   if (sessionLogs.length === 0) {
-    alert('No telemetry recorded yet in this session.');
+    showToast('No session data to export yet.', '⚠️');
     return;
   }
 
@@ -283,7 +339,7 @@ document.getElementById('btn-export-csv').addEventListener('click', function() {
   let csvContent = "data:text/csv;charset=utf-8,";
   let headers = ["Timestamp", "Overall_Score", "Active_Count", "Attentive_Count", "Facing_Pct", "Sleep_Pct", "Yawn_Pct"];
   for (let i = 1; i <= maxId; i++) {
-    headers.push(`S${i}_Score`, `S${i}_Status`);
+    headers.push(`S${i}_Score`, `S${i}_Status`, `S${i}_EAR`, `S${i}_MAR`);
   }
   csvContent += headers.join(",") + "\n";
 
@@ -292,9 +348,9 @@ document.getElementById('btn-export-csv').addEventListener('click', function() {
     for (let i = 1; i <= maxId; i++) {
       const s = entry.students.find(x => x.id === i);
       if (s) {
-        sCols.push(s.score, `"${s.status}"`);
+        sCols.push(s.score, `"${s.status}"`, s.ear, s.mar);
       } else {
-        sCols.push("", '""');
+        sCols.push("", '""', "", "");
       }
     }
     const row = [
@@ -307,10 +363,11 @@ document.getElementById('btn-export-csv').addEventListener('click', function() {
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement("a");
   link.setAttribute("href", encodedUri);
-  link.setAttribute("download", `cams_adaptive_session_${Date.now()}.csv`);
+  link.setAttribute("download", `cams_studio_telemetry_${Date.now()}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  showToast('Session CSV Exported!', '⬇');
 });
 
 // WebSocket Connection with Auto-Reconnect
@@ -334,7 +391,7 @@ function connectWebSocket() {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
-      logIncident('Telemetry stream connected', 'Attentive');
+      logIncident('Live WebSocket telemetry stream connected', 'good');
     };
 
     socket.onmessage = function(event) {

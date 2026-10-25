@@ -3,103 +3,122 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CAMS Studio — Classroom Attention Monitoring System</title>
+  <title>CAMS Studio — AI Classroom Attention Monitoring</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <script src="js/plotly.min.js"></script>
 </head>
 <body>
-  <!-- Header Bar -->
+  <!-- Glassmorphic Header -->
   <header class="studio-header">
     <div class="brand-section">
       <span class="brand-logo">CAMS Studio</span>
-      <span class="session-title">Live Classroom Session</span>
+      <span class="brand-badge">AI Telemetry</span>
     </div>
-    <div class="header-actions">
+
+    <div class="header-controls">
+      <!-- One-Click Camera Zero Calibration -->
+      <button id="btn-calibrate" class="btn-calibrate" title="Calibrate current camera tilt to 0 degrees">
+        <span>🎯</span>
+        <span>Calibrate Pose</span>
+      </button>
+
       <!-- Dynamic Capacity Selector -->
-      <div class="capacity-control">
-        <label for="capacity-select">Capacity:</label>
+      <div class="capacity-wrapper">
+        <span class="capacity-label">Mode:</span>
         <select id="capacity-select" class="capacity-select">
-          <option value="auto" selected>Auto-Detect (Adaptive)</option>
-          <option value="4">Max 4 (Focus Group)</option>
-          <option value="8">Max 8 (Small Class)</option>
-          <option value="12">Max 12 (Seminar)</option>
-          <option value="16">Max 16 (Full Room)</option>
+          <option value="auto" selected>Auto-Adaptive</option>
+          <option value="4">Max 4 Seats</option>
+          <option value="8">Max 8 Seats</option>
+          <option value="12">Max 12 Seats</option>
+          <option value="16">Max 16 Seats</option>
         </select>
       </div>
 
+      <!-- Live Connection Badge -->
       <div id="connection-badge" class="status-badge disconnected">
         <span class="pulse-dot"></span>
         <span id="connection-text">CONNECTING...</span>
       </div>
 
+      <!-- Export Button -->
       <button id="btn-export-csv" class="btn-export" title="Export session metrics to CSV">
-        ⬇ Export CSV
+        <span>⬇</span>
+        <span>Export CSV</span>
       </button>
     </div>
   </header>
 
-  <!-- Main Studio Grid -->
+  <!-- 12-Col Studio Workspace -->
   <main class="studio-grid">
-    <!-- Left Column: Video Feed + Auto-Scaling Roster -->
+    <!-- Left Column: Real-Time Stream & Student Roster -->
     <section class="studio-col">
-      <!-- Embedded Live Camera Stream -->
+      <!-- 16:9 Real-Time Video Monitor -->
       <div class="panel-card video-card">
         <div class="panel-header">
-          <span class="panel-title">Live Video Monitor</span>
-          <span id="video-feed-stats" class="text-muted" style="font-size: 0.75rem;">Connecting...</span>
+          <span class="panel-title">Real-Time Vision Stream</span>
+          <span id="video-feed-stats" class="text-muted" style="font-size: 0.72rem;">Connecting to feed...</span>
         </div>
         <div class="video-container">
-          <div class="video-tag">CAM 0 &bull; Adaptive Multi-Face</div>
-          <img id="camera-feed" src="/video_feed" alt="Live Camera Feed" onerror="this.src='Images/istockphoto-1332100919-612x612.jpg';" />
+          <div class="video-hud-overlay">
+            <span class="hud-pill">CAM 0 &bull; 30 FPS &bull; IN-MEMORY STREAM</span>
+            <span id="overlay-face-count" class="hud-pill">0 FACES DETECTED</span>
+          </div>
+          <img id="camera-feed" src="/video_feed" alt="Real-Time Video Stream" onerror="this.src='Images/istockphoto-1332100919-612x612.jpg';" />
         </div>
       </div>
 
       <!-- Auto-Scaling Student Roster Matrix -->
       <div class="panel-card roster-card">
         <div class="panel-header">
-          <span class="panel-title">Active Student Roster</span>
-          <span id="roster-active-count" class="text-muted" style="font-size: 0.75rem;">0 Active</span>
+          <span class="panel-title">Student Diagnostic Roster</span>
+          <span id="roster-active-count" class="text-muted" style="font-size: 0.72rem;">0 Active</span>
         </div>
 
         <div id="roster-empty" class="roster-empty-state">
-          <p>No students detected. Waiting for camera feed...</p>
+          <span style="font-size: 1.5rem;">🔍</span>
+          <p>No students detected in camera frame.</p>
+          <span style="font-size: 0.7rem; color: var(--text-muted);">Sit in front of the camera to begin monitoring</span>
         </div>
 
         <div id="roster-grid" class="roster-grid">
-          <!-- Dynamically generated student cards -->
+          <!-- Dynamically generated student cards appear here -->
         </div>
       </div>
     </section>
 
-    <!-- Right Column: KPI Bar + Consolidated Timeline + Incident Feed -->
+    <!-- Right Column: Hero KPIs + Timeline + Event Stream -->
     <section class="studio-col">
-      <!-- KPI Summary Tiles -->
+      <!-- 4 Hero KPI Cards -->
       <div class="kpi-row">
-        <div class="kpi-tile">
-          <span class="kpi-label">Class Attention</span>
+        <div class="kpi-tile kpi-attention">
+          <span class="kpi-header">Class Attention</span>
           <span id="kpi-overall" class="kpi-val">0%</span>
+          <span class="kpi-sub">Smoothed EMA</span>
         </div>
-        <div class="kpi-tile">
-          <span class="kpi-label">Attentive Count</span>
+        <div class="kpi-tile kpi-attentive">
+          <span class="kpi-header">Attentive Students</span>
           <span id="kpi-attentive" class="kpi-val">0 / 0</span>
+          <span class="kpi-sub">&ge; 80% & Facing</span>
         </div>
-        <div class="kpi-tile">
-          <span class="kpi-label">Facing Board</span>
+        <div class="kpi-tile kpi-facing">
+          <span class="kpi-header">Facing Board</span>
           <span id="kpi-facing" class="kpi-val">0%</span>
+          <span class="kpi-sub">Within normal cone</span>
         </div>
-        <div class="kpi-tile">
-          <span class="kpi-label">Drowsy / Yawn</span>
-          <span id="kpi-drowsy" class="kpi-val">0%</span>
+        <div class="kpi-tile kpi-drowsy">
+          <span class="kpi-header">Drowsy / Yawn</span>
+          <span id="kpi-drowsy" class="kpi-val">0% / 0%</span>
+          <span class="kpi-sub">Prolonged closures</span>
         </div>
       </div>
 
       <!-- Master Multi-Trace Timeline Chart -->
       <div class="panel-card timeline-card">
         <div class="panel-header">
-          <span class="panel-title">Classroom Engagement Timeline (100-pt Window)</span>
+          <span class="panel-title">Classroom Timeline (100-pt Sliding Window)</span>
           <div class="timeline-tabs">
             <button class="tab-btn active" data-filter="all">All</button>
             <button class="tab-btn" data-filter="attention">Attention</button>
@@ -113,21 +132,27 @@
         </div>
       </div>
 
-      <!-- Live Incident / Event Feed -->
+      <!-- Live Telemetry Incident Stream -->
       <div class="panel-card events-card">
         <div class="panel-header">
-          <span class="panel-title">Recent Telemetry Events</span>
-          <span class="text-muted" style="font-size: 0.7rem;">Auto-scrolling</span>
+          <span class="panel-title">Telemetry Activity Stream</span>
+          <span class="text-muted" style="font-size: 0.68rem;">Live</span>
         </div>
         <div id="events-list" class="events-list">
-          <div class="event-row">
-            <span>Session monitor initialized</span>
+          <div class="event-row good">
+            <span>CAMS Studio pipeline initialized</span>
             <span class="event-time">--:--:--</span>
           </div>
         </div>
       </div>
     </section>
   </main>
+
+  <!-- Interactive Toast Notification -->
+  <div id="toast-notice" class="toast-notice">
+    <span id="toast-icon">🎯</span>
+    <span id="toast-msg">Camera Calibrated!</span>
+  </div>
 
   <script src="js/script.js"></script>
 </body>

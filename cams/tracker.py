@@ -3,7 +3,7 @@ from collections import deque
 
 
 class StudentTrack:
-    """Maintains continuous tracking state, hysteresis counters, and smoothed metrics for a student."""
+    """Maintains continuous tracking state, adaptive baseline, hysteresis, and smoothed metrics."""
 
     def __init__(self, student_id):
         self.student_id = student_id
@@ -12,12 +12,16 @@ class StudentTrack:
         self.missing_frames = 0
 
         # Metrics
-        self.ear = 0.30
-        self.mar = 3.50
+        self.ear = 0.28
+        self.mar = 0.08
         self.pitch = 0.0
         self.yaw = 0.0
         self.roll = 0.0
         self.direction = "Forward"
+
+        # Adaptive eye shape baseline
+        self.ear_baseline = 0.28
+        self.ear_history = deque(maxlen=60)
 
         # Hysteresis counters
         self.sleep_frame_count = 0
@@ -33,7 +37,6 @@ class StudentTrack:
         self.status = "Attentive"
 
     def reset(self):
-        """Resets the track when student is no longer visible."""
         self.is_active = False
         self.centroid = None
         self.missing_frames = 0
@@ -58,19 +61,28 @@ class StudentTrack:
         self.roll = roll
         self.direction = direction
 
+        # Adaptive EAR baseline (tracks user's natural open-eye ratio)
+        if ear > 0.16:
+            self.ear_history.append(ear)
+            if len(self.ear_history) >= 15:
+                # Use 75th percentile as open-eye baseline
+                self.ear_baseline = float(np.percentile(self.ear_history, 75))
+
+        # Dynamic sleep threshold: 65% of open-eye baseline (bounded between 0.14 and 0.19)
+        dynamic_ear_threshold = max(min(self.ear_baseline * 0.65, 0.19), 0.14)
+
         # Drowsiness detection with hysteresis (22 frames threshold)
         MIN_SLEEP_FRAMES = 22
-        MIN_EAR_TOLERANCE = 0.22
-        if ear < MIN_EAR_TOLERANCE:
+        if ear < dynamic_ear_threshold:
             self.sleep_frame_count += 1
         else:
             self.sleep_frame_count = 0
         self.sleep_detected = (self.sleep_frame_count >= MIN_SLEEP_FRAMES)
 
-        # Yawn detection with hysteresis (15 frames threshold)
+        # Yawn detection with hysteresis (Standard MAR > 0.45 sustained for 15 frames)
         MIN_YAWN_FRAMES = 15
-        MIN_MAR_TOLERANCE = 1.8
-        if mar < MIN_MAR_TOLERANCE:
+        YAWN_MAR_THRESHOLD = 0.45
+        if mar > YAWN_MAR_THRESHOLD:
             self.yawn_frame_count += 1
         else:
             self.yawn_frame_count = 0
@@ -79,7 +91,7 @@ class StudentTrack:
         # Head orientation
         self.facing_classroom = (direction == "Forward")
 
-        # Rebalanced weights
+        # Instantaneous score weights
         if self.sleep_detected:
             w_sleep, w_facing, w_yawn = 0.70, 0.20, 0.10
         else:
@@ -95,7 +107,7 @@ class StudentTrack:
         EMA_ALPHA = 0.15
         self.ema_score = (EMA_ALPHA * self.instant_score) + ((1.0 - EMA_ALPHA) * self.ema_score)
 
-        # Determine status string
+        # Determine semantic status
         if self.sleep_detected:
             self.status = "Sleeping"
         elif self.yawn_detected:
@@ -115,7 +127,7 @@ class StudentTrack:
             "id": self.student_id,
             "score": round(self.ema_score, 1),
             "ear": round(self.ear, 2),
-            "mar": round(self.mar, 1),
+            "mar": round(self.mar, 2),
             "yaw": round(self.yaw, 1),
             "pitch": round(self.pitch, 1),
             "status": self.status,
@@ -125,33 +137,44 @@ class StudentTrack:
 
 class MultiStudentTracker:
     """
-    Adaptive, auto-scaling multi-face tracker.
-    Dynamically scales to any number of students detected in the room.
+    Adaptive multi-student tracker with ID stability, auto-centering, and capacity management.
     """
 
-    def __init__(self, max_faces=16, max_jump_radius=0.18, max_missing_frames=25):
+    def __init__(self, max_faces=16, max_jump_radius=0.25, max_missing_frames=30):
         self.max_faces = max_faces
         self.max_jump_radius = max_jump_radius
         self.max_missing_frames = max_missing_frames
         self.tracks = {}  # student_id -> StudentTrack
         self.overall_history = deque(maxlen=900)
 
+        # Calibration offsets (for laptop webcam tilt)
+        self.pitch_offset = 0.0
+        self.yaw_offset = 0.0
+
+    def set_calibration(self, pitch_offset, yaw_offset):
+        self.pitch_offset = float(pitch_offset)
+        self.yaw_offset = float(yaw_offset)
+
     def set_max_capacity(self, capacity):
-        """Dynamically adjusts the maximum face capacity."""
         self.max_faces = max(1, int(capacity))
 
     def update(self, detected_faces):
-        """
-        detected_faces: list of dicts with detected face metrics
-        """
-        # Constrain to current max capacity
         num_detected = min(len(detected_faces), self.max_faces)
         matched_track_ids = set()
         matched_detections = set()
 
-        # Step 1: Match active tracks to nearest detection
+        # If only 1 face detected and we have ID #1, prefer keeping ID #1
+        if num_detected == 1 and 1 in self.tracks and self.tracks[1].is_active:
+            d = detected_faces[0]
+            self.tracks[1].update(
+                d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"]
+            )
+            matched_track_ids.add(1)
+            matched_detections.add(0)
+
+        # Step 1: Match active tracks by nearest centroid
         for track_id, track in list(self.tracks.items()):
-            if not track.is_active or track.centroid is None:
+            if track_id in matched_track_ids or not track.is_active or track.centroid is None:
                 continue
 
             best_det_idx = None
@@ -174,17 +197,16 @@ class MultiStudentTracker:
                 matched_track_ids.add(track_id)
                 matched_detections.add(best_det_idx)
 
-        # Step 2: Handle unmatched detections (allocate new or reuse free IDs)
+        # Step 2: Allocate unmatched detections
         unmatched_detections = [i for i in range(num_detected) if i not in matched_detections]
 
         for det_idx in unmatched_detections:
-            # Find lowest available student ID
             new_id = 1
             while new_id in self.tracks and self.tracks[new_id].is_active:
                 new_id += 1
 
             if new_id > self.max_faces:
-                continue  # Capacity reached
+                continue
 
             if new_id not in self.tracks:
                 self.tracks[new_id] = StudentTrack(new_id)
@@ -195,20 +217,13 @@ class MultiStudentTracker:
             )
             matched_track_ids.add(new_id)
 
-        # Step 3: Handle unmatched tracks (grace period before deactivating)
+        # Step 3: Handle unmatched tracks (grace period)
         for track_id, track in list(self.tracks.items()):
             if track_id not in matched_track_ids and track.is_active:
                 track.missing_frames += 1
                 if track.missing_frames > self.max_missing_frames:
                     track.reset()
 
-        # Clean up empty tracks if total count exceeds 20
-        if len(self.tracks) > 20:
-            for tid in list(self.tracks.keys()):
-                if not self.tracks[tid].is_active and tid > num_detected + 2:
-                    del self.tracks[tid]
-
-        # Active student metrics
         active_tracks = [t for t in self.tracks.values() if t.is_active]
         active_tracks.sort(key=lambda t: t.student_id)
         active_count = len(active_tracks)

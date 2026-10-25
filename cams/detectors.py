@@ -18,6 +18,7 @@ def compute_ear(face_landmarks, img_w, img_h, top_bottom_indices, left_right_ind
     """
     Computes Eye Aspect Ratio (EAR) for a given eye.
     Standard formula: (|p1 - p2| + |p3 - p4|) / (2 * |p_left - p_right| + eps)
+    Typical open eye: 0.22 - 0.35. Closed eye: < 0.16.
     """
     p1 = get_landmark_point(face_landmarks.landmark[top_bottom_indices[0]], img_w, img_h)
     p2 = get_landmark_point(face_landmarks.landmark[top_bottom_indices[1]], img_w, img_h)
@@ -36,9 +37,10 @@ def compute_ear(face_landmarks, img_w, img_h, top_bottom_indices, left_right_ind
 
 def compute_mar(face_landmarks, img_w, img_h, upper_lower_indices, left_right_indices):
     """
-    Computes Mouth Aspect Ratio (MAR) with zero-division protection.
-    ratio_lips = lip_width / max(lip_height, 1e-5)
-    In this formulation, yawning opens the mouth vertically, decreasing ratio_lips below 1.8.
+    Computes Standard Mouth Aspect Ratio (MAR): height / width.
+    Closed lips: ~0.02 - 0.12.
+    Speech / Vowels: ~0.15 - 0.35.
+    Yawning: > 0.45.
     """
     p_top = get_landmark_point(face_landmarks.landmark[upper_lower_indices[0]], img_w, img_h)
     p_bottom = get_landmark_point(face_landmarks.landmark[upper_lower_indices[1]], img_w, img_h)
@@ -48,15 +50,14 @@ def compute_mar(face_landmarks, img_w, img_h, upper_lower_indices, left_right_in
     p_right = get_landmark_point(face_landmarks.landmark[left_right_indices[1]], img_w, img_h)
     lip_width = euclidean_distance_2d(p_left, p_right)
 
-    ratio_lips = lip_width / max(lip_height, 1e-5)
-    return ratio_lips, lip_height, lip_width
+    mar = lip_height / max(lip_width, 1e-5)
+    return mar, lip_height, lip_width
 
 
-def estimate_head_pose(face_landmarks, img_w, img_h):
+def estimate_head_pose(face_landmarks, img_w, img_h, pitch_offset=0.0, yaw_offset=0.0):
     """
-    Estimates 3D Head Pose (Pitch, Yaw, Roll) using canonical anthropometric 3D face points.
-    Camera matrix uses correct optical center: cx = img_w / 2, cy = img_h / 2.
-    cv.RQDecomp3x3 returns Euler angles in degrees.
+    Estimates 3D Head Pose (Pitch, Yaw, Roll) using canonical anthropometric 3D face model.
+    Accounts for natural laptop webcam angles (screen tilt) via pitch_offset and yaw_offset.
     """
     face_2d = []
     for idx in POSE_LANDMARK_IDS:
@@ -66,8 +67,8 @@ def estimate_head_pose(face_landmarks, img_w, img_h):
 
     focal_length = float(img_w)
     cam_matrix = np.array([
-        [focal_length, 0.0, img_w / 2.0],  # Fixed: cx = img_w / 2
-        [0.0, focal_length, img_h / 2.0],  # Fixed: cy = img_h / 2
+        [focal_length, 0.0, img_w / 2.0],
+        [0.0, focal_length, img_h / 2.0],
         [0.0, 0.0, 1.0]
     ], dtype=np.float64)
     dist_matrix = np.zeros((4, 1), dtype=np.float64)
@@ -82,20 +83,26 @@ def estimate_head_pose(face_landmarks, img_w, img_h):
     rmat, _ = cv.Rodrigues(rot_vec)
     angles, _, _, _, _, _ = cv.RQDecomp3x3(rmat)
 
-    # RQDecomp3x3 returns angles directly in degrees
-    pitch = float(angles[0])
-    yaw = float(angles[1])
-    roll = float(angles[2])
+    raw_pitch = float(angles[0])
+    raw_yaw = float(angles[1])
+    raw_roll = float(angles[2])
 
-    if yaw < -10.0:
+    # Calibrate relative to camera mounting baseline
+    cal_pitch = raw_pitch - pitch_offset
+    cal_yaw = raw_yaw - yaw_offset
+
+    # Natural classroom viewing tolerance:
+    # MacBook webcams typically look upward at the face (-15 to -20 deg).
+    # Normal attentive viewing cone is within +/- 22 deg yaw and -25 to +20 deg pitch.
+    if cal_yaw < -22.0:
         direction = "Looking Left"
-    elif yaw > 10.0:
+    elif cal_yaw > 22.0:
         direction = "Looking Right"
-    elif pitch < -10.0:
+    elif cal_pitch < -25.0:
         direction = "Looking Up"
-    elif pitch > 15.0:
+    elif cal_pitch > 20.0:
         direction = "Looking Down"
     else:
         direction = "Forward"
 
-    return pitch, yaw, roll, direction, rot_vec, trans_vec, cam_matrix, dist_matrix
+    return cal_pitch, cal_yaw, raw_roll, direction, rot_vec, trans_vec, cam_matrix, dist_matrix
