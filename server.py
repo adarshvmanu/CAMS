@@ -52,7 +52,7 @@ clients_lock = threading.Lock()
 
 latest_telemetry = {
     "chart": {
-        "timestamp": "--:--:--",
+        "timestamp": time.strftime("%H:%M:%S"),
         "overall_score": 0.0,
         "count": 0,
         "attention_count": 0,

@@ -870,7 +870,7 @@ function initMasterChart() {
     }
   });
 
-  // Filter Buttons
+  // Filter Buttons with Dynamic Y-Axis Scaling & Legend Dimming
   document.querySelectorAll('.filter-tab-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       if (this.id === 'btn-header-reset-zoom' || this.id === 'btn-open-deep-insight') return;
@@ -881,6 +881,7 @@ function initMasterChart() {
 
       if (!chartInstance) return;
 
+      // Update Dataset Visibility
       if (filter === 'all') {
         chartInstance.setDatasetVisibility(0, true);
         chartInstance.setDatasetVisibility(1, true);
@@ -902,6 +903,52 @@ function initMasterChart() {
         chartInstance.setDatasetVisibility(2, false);
         chartInstance.setDatasetVisibility(3, true);
       }
+
+      // Update Legend Dimming for Instant Visual Focus
+      const legendItems = document.querySelectorAll('.curve-legend-strip .legend-item');
+      if (legendItems && legendItems.length === 4) {
+        if (filter === 'all') {
+          legendItems.forEach(item => item.style.opacity = '1');
+        } else if (filter === 'focus') {
+          legendItems[0].style.opacity = '1';
+          legendItems[1].style.opacity = '1';
+          legendItems[2].style.opacity = '0.25';
+          legendItems[3].style.opacity = '0.25';
+        } else if (filter === 'gaze') {
+          legendItems[0].style.opacity = '0.25';
+          legendItems[1].style.opacity = '0.25';
+          legendItems[2].style.opacity = '1';
+          legendItems[3].style.opacity = '0.25';
+        } else if (filter === 'fatigue') {
+          legendItems[0].style.opacity = '0.25';
+          legendItems[1].style.opacity = '0.25';
+          legendItems[2].style.opacity = '0.25';
+          legendItems[3].style.opacity = '1';
+        }
+      }
+
+      // Dynamic Y-axis Auto-Scaling
+      if (!chartZoomState.isZoomed) {
+        if (filter === 'fatigue') {
+          const fatData = chartInstance.data.datasets[3].data;
+          const maxFat = fatData.length > 0 ? Math.max(...fatData.filter(v => typeof v === 'number')) : 15;
+          chartInstance.options.scales.y.min = 0;
+          chartInstance.options.scales.y.max = Math.max(25, Math.ceil(maxFat + 5));
+          chartInstance.options.scales.y.ticks.stepSize = Math.max(5, Math.round(chartInstance.options.scales.y.max / 4));
+          chartInstance.options.scales.y.ticks.callback = (v) => `${(v / 100 * 0.80).toFixed(2)} MAR`;
+        } else if (filter === 'gaze') {
+          chartInstance.options.scales.y.min = 30;
+          chartInstance.options.scales.y.max = 100;
+          chartInstance.options.scales.y.ticks.stepSize = 20;
+          chartInstance.options.scales.y.ticks.callback = (v) => `${v}%`;
+        } else {
+          chartInstance.options.scales.y.min = 0;
+          chartInstance.options.scales.y.max = 100;
+          chartInstance.options.scales.y.ticks.stepSize = 25;
+          chartInstance.options.scales.y.ticks.callback = (v) => `${v}%`;
+        }
+      }
+
       chartInstance.update('none');
     });
   });
@@ -1478,8 +1525,12 @@ function openDeepInsightModal(customSlice) {
   const frameCountEl = document.getElementById('modal-frame-count');
   if (frameCountEl) frameCountEl.textContent = stats.sampleCount;
 
-  if (tbody) {
+  // Render rows and cache for rapid client-side filtering
+  function renderModalLedgerRows(filterMode = 'all') {
+    if (!tbody) return;
     tbody.innerHTML = '';
+    let visibleCount = 0;
+
     stats.labels.forEach((t, i) => {
       const f = stats.focus[i];
       const facing = stats.facing[i];
@@ -1493,6 +1544,14 @@ function openDeepInsightModal(customSlice) {
       const mar = typeof student.mar === 'number' ? student.mar.toFixed(2) : ((fat / 100 * 0.80).toFixed(2));
       const status = student.status || (f >= 70 ? 'Attentive' : (mar >= 0.60 ? 'Yawning' : (ear < 0.20 ? 'Sleeping' : 'Distracted')));
 
+      // Filter matching
+      if (filterMode === 'divergent') {
+        if (status === 'Attentive' && facing >= 80) return;
+      } else if (filterMode === 'fatigue') {
+        if (Number(mar) < 0.50 && Number(ear) >= 0.22 && status !== 'Yawning' && status !== 'Sleeping') return;
+      }
+
+      visibleCount++;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="mono tabular-nums font-medium">${t}</td>
@@ -1505,11 +1564,26 @@ function openDeepInsightModal(customSlice) {
       `;
       tbody.appendChild(tr);
     });
+
+    if (frameCountEl) frameCountEl.textContent = visibleCount;
   }
 
-  // Open Backdrop
+  renderModalLedgerRows('all');
+
+  // Bind modal filter chips
+  document.querySelectorAll('.modal-filter-chip').forEach(chip => {
+    chip.onclick = function() {
+      document.querySelectorAll('.modal-filter-chip').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+      renderModalLedgerRows(this.getAttribute('data-filter'));
+    };
+  });
+
+  // Open Backdrop and reset scroll to top
   const backdrop = document.getElementById('deep-insight-modal-backdrop');
   if (backdrop) backdrop.classList.add('show');
+  const modalBody = document.querySelector('.modal-studio-body');
+  if (modalBody) modalBody.scrollTop = 0;
 }
 
 function closeDeepInsightModal() {
@@ -2405,7 +2479,10 @@ let reconnectTimer = null;
 
 function handleTelemetryPayload(payload) {
   const chartData = payload.chart || payload;
-  const timestamp = chartData.timestamp || new Date().toTimeString().split(' ')[0];
+  let timestamp = chartData.timestamp;
+  if (!timestamp || timestamp === '--:--:--') {
+    timestamp = new Date().toTimeString().split(' ')[0];
+  }
 
   engine.ingestPacket(payload);
 

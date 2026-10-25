@@ -648,8 +648,15 @@
         <!-- Frame-by-Frame Forensic Ledger Table -->
         <div class="modal-table-section">
           <div class="modal-table-header">
-            <span class="modal-section-title">Forensic Frame Ledger (<span id="modal-frame-count">0</span> samples)</span>
-            <span class="modal-table-subtitle">Individual biometric optical measurements captured during interval</span>
+            <div class="modal-table-header-left">
+              <span class="modal-section-title">Forensic Frame Ledger (<span id="modal-frame-count">0</span> samples)</span>
+              <span class="modal-table-subtitle">· Individual biometric optical measurements captured during interval</span>
+            </div>
+            <div class="modal-filter-chips">
+              <button type="button" class="modal-filter-chip active" data-filter="all">All Samples</button>
+              <button type="button" class="modal-filter-chip" data-filter="divergent">Averted / Desk</button>
+              <button type="button" class="modal-filter-chip" data-filter="fatigue">Fatigue / Yawn</button>
+            </div>
           </div>
           <div class="modal-table-scroll">
             <table class="swiss-ledger-table modal-ledger-table">
