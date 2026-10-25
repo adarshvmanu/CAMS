@@ -18,19 +18,32 @@
       <span class="session-title">Live Classroom Session</span>
     </div>
     <div class="header-actions">
+      <!-- Dynamic Capacity Selector -->
+      <div class="capacity-control">
+        <label for="capacity-select">Capacity:</label>
+        <select id="capacity-select" class="capacity-select">
+          <option value="auto" selected>Auto-Detect (Adaptive)</option>
+          <option value="4">Max 4 (Focus Group)</option>
+          <option value="8">Max 8 (Small Class)</option>
+          <option value="12">Max 12 (Seminar)</option>
+          <option value="16">Max 16 (Full Room)</option>
+        </select>
+      </div>
+
       <div id="connection-badge" class="status-badge disconnected">
         <span class="pulse-dot"></span>
         <span id="connection-text">CONNECTING...</span>
       </div>
+
       <button id="btn-export-csv" class="btn-export" title="Export session metrics to CSV">
         ⬇ Export CSV
       </button>
     </div>
   </header>
 
-  <!-- Main 12-Col Studio Grid -->
+  <!-- Main Studio Grid -->
   <main class="studio-grid">
-    <!-- Left Column: Video Feed + 4-Seat Roster -->
+    <!-- Left Column: Video Feed + Auto-Scaling Roster -->
     <section class="studio-col">
       <!-- Embedded Live Camera Stream -->
       <div class="panel-card video-card">
@@ -39,120 +52,31 @@
           <span id="video-feed-stats" class="text-muted" style="font-size: 0.75rem;">Connecting...</span>
         </div>
         <div class="video-container">
-          <div class="video-tag">CAM 0 &bull; 640&times;360 &bull; FaceMesh</div>
+          <div class="video-tag">CAM 0 &bull; Adaptive Multi-Face</div>
           <img id="camera-feed" src="/video_feed" alt="Live Camera Feed" onerror="this.src='Images/istockphoto-1332100919-612x612.jpg';" />
         </div>
       </div>
 
-      <!-- 4-Seat Student Roster Matrix -->
+      <!-- Auto-Scaling Student Roster Matrix -->
       <div class="panel-card roster-card">
         <div class="panel-header">
-          <span class="panel-title">Per-Student Roster Matrix</span>
-          <span id="roster-active-count" class="text-muted" style="font-size: 0.75rem;">0 / 4 Active</span>
+          <span class="panel-title">Active Student Roster</span>
+          <span id="roster-active-count" class="text-muted" style="font-size: 0.75rem;">0 Active</span>
         </div>
-        <div class="roster-grid">
-          <!-- Student Card #1 -->
-          <div id="seat-1" class="seat-card empty">
-            <div class="seat-header">
-              <span class="seat-name">Student #1</span>
-              <span class="seat-status-pill">Empty Slot</span>
-            </div>
-            <div class="seat-score-row">
-              <span class="seat-score">&mdash;</span>
-              <span class="seat-score-label">ATTENTION</span>
-            </div>
-            <div class="seat-metrics">
-              <div class="metric-bar-row">
-                <span>EAR (Eyes)</span>
-                <span class="ear-val">&mdash;</span>
-                <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
-              </div>
-              <div class="metric-bar-row">
-                <span>MAR (Mouth)</span>
-                <span class="mar-val">&mdash;</span>
-                <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
-              </div>
-            </div>
-          </div>
 
-          <!-- Student Card #2 -->
-          <div id="seat-2" class="seat-card empty">
-            <div class="seat-header">
-              <span class="seat-name">Student #2</span>
-              <span class="seat-status-pill">Empty Slot</span>
-            </div>
-            <div class="seat-score-row">
-              <span class="seat-score">&mdash;</span>
-              <span class="seat-score-label">ATTENTION</span>
-            </div>
-            <div class="seat-metrics">
-              <div class="metric-bar-row">
-                <span>EAR (Eyes)</span>
-                <span class="ear-val">&mdash;</span>
-                <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
-              </div>
-              <div class="metric-bar-row">
-                <span>MAR (Mouth)</span>
-                <span class="mar-val">&mdash;</span>
-                <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
-              </div>
-            </div>
-          </div>
+        <div id="roster-empty" class="roster-empty-state">
+          <p>No students detected. Waiting for camera feed...</p>
+        </div>
 
-          <!-- Student Card #3 -->
-          <div id="seat-3" class="seat-card empty">
-            <div class="seat-header">
-              <span class="seat-name">Student #3</span>
-              <span class="seat-status-pill">Empty Slot</span>
-            </div>
-            <div class="seat-score-row">
-              <span class="seat-score">&mdash;</span>
-              <span class="seat-score-label">ATTENTION</span>
-            </div>
-            <div class="seat-metrics">
-              <div class="metric-bar-row">
-                <span>EAR (Eyes)</span>
-                <span class="ear-val">&mdash;</span>
-                <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
-              </div>
-              <div class="metric-bar-row">
-                <span>MAR (Mouth)</span>
-                <span class="mar-val">&mdash;</span>
-                <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Student Card #4 -->
-          <div id="seat-4" class="seat-card empty">
-            <div class="seat-header">
-              <span class="seat-name">Student #4</span>
-              <span class="seat-status-pill">Empty Slot</span>
-            </div>
-            <div class="seat-score-row">
-              <span class="seat-score">&mdash;</span>
-              <span class="seat-score-label">ATTENTION</span>
-            </div>
-            <div class="seat-metrics">
-              <div class="metric-bar-row">
-                <span>EAR (Eyes)</span>
-                <span class="ear-val">&mdash;</span>
-                <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
-              </div>
-              <div class="metric-bar-row">
-                <span>MAR (Mouth)</span>
-                <span class="mar-val">&mdash;</span>
-                <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
-              </div>
-            </div>
-          </div>
+        <div id="roster-grid" class="roster-grid">
+          <!-- Dynamically generated student cards -->
         </div>
       </div>
     </section>
 
     <!-- Right Column: KPI Bar + Consolidated Timeline + Incident Feed -->
     <section class="studio-col">
-      <!-- 4 KPI Summary Tiles -->
+      <!-- KPI Summary Tiles -->
       <div class="kpi-row">
         <div class="kpi-tile">
           <span class="kpi-label">Class Attention</span>

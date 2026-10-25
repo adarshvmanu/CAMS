@@ -61,7 +61,32 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+/* Capacity Selector */
+.capacity-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.capacity-select {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.capacity-select:focus {
+  border-color: var(--accent-blue);
 }
 
 .status-badge {
@@ -151,7 +176,7 @@ body {
   flex: 1.1;
   display: flex;
   flex-direction: column;
-  min-height: 280px;
+  min-height: 270px;
 }
 
 .video-container {
@@ -175,7 +200,7 @@ body {
   position: absolute;
   top: 8px;
   left: 8px;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(4px);
   padding: 3px 8px;
   border-radius: 4px;
@@ -185,17 +210,34 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
-/* 4-Seat Roster Matrix */
+/* Auto-Scaling Roster Matrix */
 .roster-card {
   flex: 1;
   min-height: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.roster-empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 8px;
+  padding: 20px;
 }
 
 .roster-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 8px;
-  height: calc(100% - 24px);
+  flex: 1;
+  overflow-y: auto;
+  max-height: 250px;
+  padding-right: 4px;
 }
 
 .seat-card {
@@ -206,15 +248,12 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: border-color 0.2s ease;
+  transition: all 0.2s ease;
+  min-height: 100px;
 }
 
 .seat-card.active {
   border-color: rgba(56, 189, 248, 0.4);
-}
-
-.seat-card.empty {
-  opacity: 0.45;
 }
 
 .seat-header {
@@ -263,7 +302,7 @@ body {
 }
 
 .seat-score {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -288,7 +327,7 @@ body {
 }
 
 .metric-track {
-  width: 55px;
+  width: 50px;
   height: 4px;
   background: var(--bg-panel);
   border-radius: 2px;

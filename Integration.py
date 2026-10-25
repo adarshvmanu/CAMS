@@ -19,11 +19,11 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PAGE_DIR = os.path.join(SCRIPT_DIR, 'Page')
 DATA_FILE_PATH = os.path.join(PAGE_DIR, 'data.json')
 DATA_TMP_PATH = os.path.join(PAGE_DIR, 'data.json.tmp')
+CONFIG_PATH = os.path.join(PAGE_DIR, 'config.json')
 FRAME_FEED_PATH = os.path.join(PAGE_DIR, 'camera_feed.jpg')
 FRAME_FEED_TMP = os.path.join(PAGE_DIR, 'camera_feed.jpg.tmp')
 SNAPSHOT_PATH = os.path.join(SCRIPT_DIR, 'camera_check.jpg')
 
-# Camera backend detection & options
 def backends_for(source):
     if sys.platform == 'win32' and isinstance(source, int):
         return [(cv.CAP_DSHOW, 'DirectShow'), (cv.CAP_MSMF, 'MSMF')]
@@ -71,7 +71,6 @@ def write_atomic_json(summary_data):
     current_time = time.localtime()
     timestamp = time.strftime("%H:%M:%S", current_time)
 
-    # Payload matching Section 4 Fix 4.1 in CAMS Remediation Plan
     payload = {
         "chart": {
             "timestamp": timestamp,
@@ -81,7 +80,7 @@ def write_atomic_json(summary_data):
             "sleep_detected": summary_data["sleep_detected"],
             "yawn_detected": summary_data["yawn_detected"],
             "facing_classroom": summary_data["facing_classroom"],
-            "attention_scores": [s["score"] for s in summary_data["students"] if s["active"]] or [0.0],
+            "attention_scores": [s["score"] for s in summary_data["students"]] or [0.0],
             "students": summary_data["students"]
         }
     }
@@ -97,7 +96,6 @@ def write_atomic_json(summary_data):
 def write_atomic_frame(image):
     """Writes annotated frame for MJPEG streaming."""
     try:
-        # Resize for optimal stream performance
         feed_img = cv.resize(image, (640, 360)) if (image.shape[1] > 640) else image
         cv.imwrite(FRAME_FEED_TMP, feed_img, [cv.IMWRITE_JPEG_QUALITY, 75])
         os.replace(FRAME_FEED_TMP, FRAME_FEED_PATH)
@@ -108,34 +106,40 @@ def write_atomic_frame(image):
 def main():
     video_source = None
     display_window = True
+    max_students = 16  # Adaptive default headroom
 
-    for arg in sys.argv[1:]:
+    args = sys.argv[1:]
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg == '--no-display':
             display_window = False
+        elif arg == '--max-students' and i + 1 < len(args):
+            max_students = int(args[i + 1])
+            i += 1
         elif arg.isdigit():
             video_source = int(arg)
         elif not arg.startswith('--'):
             video_source = arg
+        i += 1
 
     candidate_sources = [0, 1, 2, 3] if video_source is None else [video_source]
     capture = open_capture(candidate_sources)
 
     if capture is None:
         print(f"[CAMS] Error: Unable to open video source '{video_source or 'camera'}'.")
-        print("Please check camera permissions or run with a video file: python Integration.py video.mp4")
         sys.exit(1)
 
-    # Initialize MediaPipe FaceMesh
     mp_face_mesh = mp.solutions.face_mesh
     face_model = mp_face_mesh.FaceMesh(
         static_image_mode=False,
-        max_num_faces=4,
+        max_num_faces=max_students,
         refine_landmarks=False,
-        min_detection_confidence=0.6,
-        min_tracking_confidence=0.6
+        min_detection_confidence=0.55,
+        min_tracking_confidence=0.55
     )
 
-    tracker = MultiStudentTracker(max_faces=4, max_jump_radius=0.18)
+    tracker = MultiStudentTracker(max_faces=max_students, max_jump_radius=0.18)
 
     window_name = "CAMS Live Monitor"
     if display_window:
@@ -143,11 +147,12 @@ def main():
 
     last_json_time = 0.0
     last_frame_feed_time = 0.0
+    last_config_check = 0.0
     frame_count = 0
     t_start = time.time()
     fps = 30.0
 
-    print("[CAMS] Tracking pipeline active. Press 'Esc' to exit.")
+    print(f"[CAMS] Tracking pipeline active (Adaptive Capacity: {max_students}). Press 'Esc' to exit.")
 
     while True:
         success, image = capture.read()
@@ -163,6 +168,20 @@ def main():
                 fps = 15.0 / elapsed
             t_start = now
 
+        # Periodic check for dynamic dashboard capacity changes
+        if now - last_config_check >= 2.0:
+            last_config_check = now
+            if os.path.exists(CONFIG_PATH):
+                try:
+                    with open(CONFIG_PATH, 'r') as f:
+                        cfg = json.load(f)
+                    new_cap = int(cfg.get("max_faces", max_students))
+                    if new_cap != tracker.max_faces:
+                        tracker.set_max_capacity(new_cap)
+                        print(f"\n[CAMS] Dynamically adjusted capacity to: {new_cap} students")
+                except Exception:
+                    pass
+
         if frame_count == 1:
             cv.imwrite(SNAPSHOT_PATH, image)
 
@@ -174,19 +193,15 @@ def main():
 
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
-                # 1. Centroid (from nose landmark 1)
                 nose_lm = face_landmarks.landmark[1]
                 centroid = (nose_lm.x, nose_lm.y)
 
-                # 2. EAR (Eye Aspect Ratio)
                 ear_left = compute_ear(face_landmarks, img_w, img_h, LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT)
                 ear_right = compute_ear(face_landmarks, img_w, img_h, RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT)
                 ear_avg = (ear_left + ear_right) / 2.0
 
-                # 3. MAR (Mouth Aspect Ratio)
                 mar, _, _ = compute_mar(face_landmarks, img_w, img_h, UPPER_LOWER_LIPS, LEFT_RIGHT_LIPS)
 
-                # 4. Head Pose (Euler angles)
                 pitch, yaw, roll, direction, rot_vec, trans_vec, cam_matrix, dist_matrix = estimate_head_pose(
                     face_landmarks, img_w, img_h
                 )
@@ -206,14 +221,12 @@ def main():
                     "face_landmarks": face_landmarks
                 })
 
-        # Update multi-student tracker
         summary = tracker.update(detected_faces)
 
         # Render HUD annotations on video image
-        for track in tracker.tracks:
+        for track in tracker.tracks.values():
             if not track.is_active:
                 continue
-            # Find the detection that matched this track to get its landmark & pose vectors
             matched_det = None
             if track.centroid is not None:
                 for det in detected_faces:
@@ -228,23 +241,19 @@ def main():
                 )
 
         render_top_bar(image, fps, summary["count"], summary["overall_score"])
-
-        # In-place terminal status table (Fix 5.2 #5)
         print_ansi_status(fps, summary["count"], summary)
 
-        # Atomic telemetry write throttled to 1 Hz (Fix 4.1)
         if now - last_json_time >= 1.0:
             write_atomic_json(summary)
             last_json_time = now
 
-        # Update live camera stream frame for browser (10-15 Hz)
         if now - last_frame_feed_time >= 0.08:
             write_atomic_frame(image)
             last_frame_feed_time = now
 
         if display_window:
             cv.imshow(window_name, image)
-            if cv.waitKey(1) & 0xFF == 27:  # Esc key
+            if cv.waitKey(1) & 0xFF == 27:
                 break
         else:
             time.sleep(0.005)

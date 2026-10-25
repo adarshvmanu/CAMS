@@ -13,6 +13,7 @@ PORT = int(os.environ.get("PORT", 3000))
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PAGE_DIR = os.path.join(SCRIPT_DIR, "Page")
 DATA_FILE_PATH = os.path.join(PAGE_DIR, "data.json")
+CONFIG_PATH = os.path.join(PAGE_DIR, "config.json")
 FRAME_FEED_PATH = os.path.join(PAGE_DIR, "camera_feed.jpg")
 SNAPSHOT_PATH = os.path.join(SCRIPT_DIR, "camera_check.jpg")
 
@@ -21,11 +22,10 @@ ws_lock = threading.Lock()
 
 
 def encode_ws_frame(message):
-    """Encodes a UTF-8 text string into an RFC 6455 WebSocket frame."""
     data = message.encode("utf-8")
     length = len(data)
     frame = bytearray()
-    frame.append(0x81)  # FIN + Opcode 1 (Text)
+    frame.append(0x81)  # FIN + Text
 
     if length <= 125:
         frame.append(length)
@@ -41,7 +41,6 @@ def encode_ws_frame(message):
 
 
 def broadcast_telemetry_loop():
-    """Reads data.json and broadcasts to connected WebSocket clients every 1 second."""
     last_content = ""
     while True:
         try:
@@ -65,18 +64,37 @@ def broadcast_telemetry_loop():
 
 
 class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
-    """Handles HTTP static files, MJPEG /video_feed, REST /api/data, and WebSocket upgrades."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=PAGE_DIR, **kwargs)
 
+    def do_POST(self):
+        # Configuration endpoint for dashboard capacity adjustment
+        if self.path == "/api/config":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            try:
+                cfg = json.loads(body)
+                with open(CONFIG_PATH, "w") as f:
+                    json.dump(cfg, f)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"status": "ok"}')
+                return
+            except Exception as e:
+                self.send_error(400, str(e))
+                return
+
+        return super().do_POST()
+
     def do_GET(self):
-        # 1. Check for WebSocket Upgrade Handshake
+        # 1. WebSocket Upgrade
         if self.headers.get("Upgrade", "").lower() == "websocket":
             self.handle_websocket_handshake()
             return
 
-        # 2. REST API /api/data endpoint
+        # 2. REST API /api/data
         if self.path == "/api/data":
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -86,10 +104,22 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
                 with open(DATA_FILE_PATH, "rb") as f:
                     self.wfile.write(f.read())
             else:
-                self.wfile.write(b'{"chart": {"status": "waiting"}}')
+                self.wfile.write(b'{"chart": {"status": "waiting", "students": []}}')
             return
 
-        # 3. MJPEG live camera stream /video_feed
+        # 3. REST API /api/config
+        if self.path == "/api/config":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            if os.path.exists(CONFIG_PATH):
+                with open(CONFIG_PATH, "rb") as f:
+                    self.wfile.write(f.read())
+            else:
+                self.wfile.write(b'{"max_faces": 16, "mode": "auto"}')
+            return
+
+        # 4. Live MJPEG Video Feed
         if self.path == "/video_feed":
             self.send_response(200)
             self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
@@ -107,21 +137,20 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
                         self.wfile.write(b"Content-Type: image/jpeg\r\n\r\n")
                         self.wfile.write(jpg_bytes)
                         self.wfile.write(b"\r\n")
-                    time.sleep(0.08)  # ~12 FPS for stream
+                    time.sleep(0.08)
                 except (BrokenPipeError, ConnectionResetError):
                     break
                 except Exception:
                     time.sleep(0.1)
             return
 
-        # 4. Route root to Index.html
+        # 5. Route root to Index.html
         if self.path in ("/", "/index", "/index.html"):
             self.path = "/Index.html"
 
         return super().do_GET()
 
     def handle_websocket_handshake(self):
-        """Performs RFC 6455 WebSocket Handshake using standard library hashlib & base64."""
         key = self.headers.get("Sec-WebSocket-Key", "")
         if not key:
             self.send_error(400, "Missing Sec-WebSocket-Key")
@@ -143,7 +172,6 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
         with ws_lock:
             ws_clients.add(raw_sock)
 
-        # Immediately send latest data upon connection
         if os.path.exists(DATA_FILE_PATH):
             try:
                 with open(DATA_FILE_PATH, "r", encoding="utf-8") as f:
@@ -153,14 +181,13 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
-        # Keep client connection open, discard incoming frames or handle close/pong
         try:
             while True:
                 head = raw_sock.recv(2)
                 if not head or len(head) < 2:
                     break
                 opcode = head[0] & 0x0F
-                if opcode == 0x8:  # Close frame
+                if opcode == 0x8:
                     break
                 payload_len = head[1] & 0x7F
                 if payload_len == 126:
@@ -170,7 +197,6 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
                 mask = head[1] & 0x80
                 if mask:
                     raw_sock.recv(4)
-                # Read payload
                 to_read = payload_len
                 while to_read > 0:
                     chunk = raw_sock.recv(min(to_read, 4096))
@@ -193,9 +219,6 @@ def main():
     threading.Thread(target=broadcast_telemetry_loop, daemon=True).start()
     server = ThreadedHTTPServer(("0.0.0.0", PORT), CAMSUnifiedHandler)
     print(f"[CAMS Server] Serving at http://localhost:{PORT}")
-    print(f"[CAMS Server] WebSocket active on ws://localhost:{PORT}")
-    print(f"[CAMS Server] Live MJPEG video feed at http://localhost:{PORT}/video_feed")
-
     try:
         server.serve_forever()
     except KeyboardInterrupt:

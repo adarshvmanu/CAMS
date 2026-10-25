@@ -5,11 +5,11 @@ from collections import deque
 class StudentTrack:
     """Maintains continuous tracking state, hysteresis counters, and smoothed metrics for a student."""
 
-    def __init__(self, slot_id):
-        self.slot_id = slot_id
-        self.student_id = slot_id + 1
+    def __init__(self, student_id):
+        self.student_id = student_id
         self.centroid = None  # (cx, cy) normalized coordinates
         self.is_active = False
+        self.missing_frames = 0
 
         # Metrics
         self.ear = 0.30
@@ -33,9 +33,10 @@ class StudentTrack:
         self.status = "Attentive"
 
     def reset(self):
-        """Resets the track when no face is occupying this slot."""
+        """Resets the track when student is no longer visible."""
         self.is_active = False
         self.centroid = None
+        self.missing_frames = 0
         self.sleep_frame_count = 0
         self.yawn_frame_count = 0
         self.sleep_detected = False
@@ -48,6 +49,7 @@ class StudentTrack:
 
     def update(self, centroid, ear, mar, pitch, yaw, roll, direction):
         self.is_active = True
+        self.missing_frames = 0
         self.centroid = centroid
         self.ear = ear
         self.mar = mar
@@ -77,8 +79,7 @@ class StudentTrack:
         # Head orientation
         self.facing_classroom = (direction == "Forward")
 
-        # Rebalanced weights (Fix 3.1)
-        # Looking away drops instant score to 65.0%
+        # Rebalanced weights
         if self.sleep_detected:
             w_sleep, w_facing, w_yawn = 0.70, 0.20, 0.10
         else:
@@ -123,32 +124,33 @@ class StudentTrack:
 
 
 class MultiStudentTracker:
-    """Manages centroid-based multi-face tracking across frames for up to MAX_NUM_FACES students."""
+    """
+    Adaptive, auto-scaling multi-face tracker.
+    Dynamically scales to any number of students detected in the room.
+    """
 
-    def __init__(self, max_faces=4, max_jump_radius=0.18):
+    def __init__(self, max_faces=16, max_jump_radius=0.18, max_missing_frames=25):
         self.max_faces = max_faces
         self.max_jump_radius = max_jump_radius
-        self.tracks = [StudentTrack(i) for i in range(max_faces)]
-        self.overall_history = deque(maxlen=900)  # ~30s to 60s bounded rolling buffer
+        self.max_missing_frames = max_missing_frames
+        self.tracks = {}  # student_id -> StudentTrack
+        self.overall_history = deque(maxlen=900)
+
+    def set_max_capacity(self, capacity):
+        """Dynamically adjusts the maximum face capacity."""
+        self.max_faces = max(1, int(capacity))
 
     def update(self, detected_faces):
         """
-        detected_faces: list of dicts with keys:
-            'centroid': (cx, cy),
-            'ear': float,
-            'mar': float,
-            'pitch': float,
-            'yaw': float,
-            'roll': float,
-            'direction': str,
-            'face_landmarks': landmark object
+        detected_faces: list of dicts with detected face metrics
         """
+        # Constrain to current max capacity
         num_detected = min(len(detected_faces), self.max_faces)
-        matched_tracks = set()
+        matched_track_ids = set()
         matched_detections = set()
 
-        # Step 1: Match existing active tracks to nearest new centroid
-        for track_idx, track in enumerate(self.tracks):
+        # Step 1: Match active tracks to nearest detection
+        for track_id, track in list(self.tracks.items()):
             if not track.is_active or track.centroid is None:
                 continue
 
@@ -169,27 +171,46 @@ class MultiStudentTracker:
                 track.update(
                     d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"]
                 )
-                matched_tracks.add(track_idx)
+                matched_track_ids.add(track_id)
                 matched_detections.add(best_det_idx)
 
-        # Step 2: Assign unmatched detections to free track slots
+        # Step 2: Handle unmatched detections (allocate new or reuse free IDs)
         unmatched_detections = [i for i in range(num_detected) if i not in matched_detections]
-        free_track_slots = [i for i in range(self.max_faces) if i not in matched_tracks]
 
-        for det_idx, slot_idx in zip(unmatched_detections, free_track_slots):
+        for det_idx in unmatched_detections:
+            # Find lowest available student ID
+            new_id = 1
+            while new_id in self.tracks and self.tracks[new_id].is_active:
+                new_id += 1
+
+            if new_id > self.max_faces:
+                continue  # Capacity reached
+
+            if new_id not in self.tracks:
+                self.tracks[new_id] = StudentTrack(new_id)
+
             d = detected_faces[det_idx]
-            self.tracks[slot_idx].update(
+            self.tracks[new_id].update(
                 d["centroid"], d["ear"], d["mar"], d["pitch"], d["yaw"], d["roll"], d["direction"]
             )
-            matched_tracks.add(slot_idx)
+            matched_track_ids.add(new_id)
 
-        # Step 3: Explicitly reset all unoccupied slots k >= num_detected
-        for slot_idx in range(self.max_faces):
-            if slot_idx not in matched_tracks:
-                self.tracks[slot_idx].reset()
+        # Step 3: Handle unmatched tracks (grace period before deactivating)
+        for track_id, track in list(self.tracks.items()):
+            if track_id not in matched_track_ids and track.is_active:
+                track.missing_frames += 1
+                if track.missing_frames > self.max_missing_frames:
+                    track.reset()
 
-        # Compute aggregate classroom summary
-        active_tracks = [t for t in self.tracks if t.is_active]
+        # Clean up empty tracks if total count exceeds 20
+        if len(self.tracks) > 20:
+            for tid in list(self.tracks.keys()):
+                if not self.tracks[tid].is_active and tid > num_detected + 2:
+                    del self.tracks[tid]
+
+        # Active student metrics
+        active_tracks = [t for t in self.tracks.values() if t.is_active]
+        active_tracks.sort(key=lambda t: t.student_id)
         active_count = len(active_tracks)
 
         if active_count > 0:
@@ -216,6 +237,6 @@ class MultiStudentTracker:
             "yawn_detected": round(yawn_pct, 1),
             "facing_classroom": round(facing_pct, 1),
             "overall_score": round(session_overall, 2),
-            "students": [t.to_dict() for t in self.tracks]
+            "students": [t.to_dict() for t in active_tracks]
         }
         return summary
