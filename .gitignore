@@ -4,4 +4,6 @@ __pycache__/
 *.py[cod]
 .DS_Store
 .node/
-camera_check.jpg
+camera_check.jpgPage/data.json
+Page/data.json.tmp
+.venv/
