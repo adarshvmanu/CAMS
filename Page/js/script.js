@@ -42,16 +42,14 @@ function runBootloaderSequence(force = false) {
   const pupil = document.getElementById('boot-pupil');
   const constellation = document.getElementById('constellation-group');
 
-  const BOOT_DURATION = 1600; // 1.6s smooth wake sequence
+  const BOOT_DURATION = 900; // Snappy, clean system wake sequence
   const startTime = performance.now();
 
   const bootStages = [
-    { p: 0.18, text: '[0.06s] GPU / Metal Hardware Acceleration: Online' },
-    { p: 0.38, text: '[0.18s] MediaPipe 468-Point Anthropometric Model: Loaded' },
-    { p: 0.62, text: '[0.32s] Perspective-n-Point 3D Head-Pose Geometry: Calibrated' },
-    { p: 0.82, text: '[0.48s] Ocular Aspect Ratio (EAR) Dynamic Baseline: Armed' },
-    { p: 0.96, text: '[0.70s] High-Frequency Telemetry In-Memory Stream: Synchronized' },
-    { p: 1.00, text: 'OPTICAL LOCK CONFIRMED · LAUNCHING STUDIO' }
+    { p: 0.25, text: 'Connecting to Local Telemetry Stream & Camera...' },
+    { p: 0.55, text: 'Initializing MediaPipe 3D Mesh & Head-Pose Engine...' },
+    { p: 0.85, text: 'Synchronizing Real-Time Biometric Buffer...' },
+    { p: 1.00, text: 'Optical Telemetry Stream Active · Launching Studio' }
   ];
 
   function animateBoot(now) {
@@ -117,7 +115,7 @@ function runBootloaderSequence(force = false) {
 
   function finishBootloader() {
     bootloaderRunning = false;
-    if (logText) logText.textContent = 'OPTICAL LOCK CONFIRMED · LAUNCHING STUDIO';
+    if (logText) logText.textContent = 'TELEMETRY ENGINE READY · LAUNCHING STUDIO';
     if (progressBar) progressBar.style.width = '100%';
 
     setTimeout(() => {
@@ -258,14 +256,6 @@ function updateSessionStatusFooter() {
 
   if (elapsedEl) elapsedEl.textContent = `${hrs}:${mins}:${secs}`;
   if (framesEl) framesEl.textContent = String(engine.frameCount);
-
-  // Sync Lecture Syllabus Active Phase Time & Topic
-  const sylElapsed = document.getElementById('syl-active-elapsed');
-  if (sylElapsed) sylElapsed.textContent = `${mins}:${secs}`;
-  const sylTitle = document.getElementById('syl-active-title');
-  if (sylTitle && sessionConfig.topic) {
-    sylTitle.textContent = `III. ${sessionConfig.topic}`;
-  }
 }
 
 // ============================================================================
@@ -1190,8 +1180,7 @@ function renderBiometricLedgerTable(students) {
 
   if (slotsLabel) {
     const activeCount = students.length;
-    const standbyCount = Math.max(0, 30 - activeCount);
-    slotsLabel.textContent = `${activeCount} locked · ${standbyCount} standby slots`;
+    slotsLabel.textContent = `${activeCount} participant${activeCount === 1 ? '' : 's'} tracked · active telemetry`;
   }
 
   let rowsHtml = '';
@@ -1305,43 +1294,6 @@ function renderBiometricLedgerTable(students) {
         </td>
       </tr>
     `;
-  });
-
-  // Architectural Standby Slots (Preserving Grid Structure)
-  const standbyConfigs = [
-    { id: '02', name: 'Seat 02', loc: 'Front-Left' },
-    { id: '03', name: 'Seat 03', loc: 'Front-Right' },
-    { id: '04', name: 'Seat 04', loc: 'Mid-Center' }
-  ];
-  const renderedIds = new Set(students.map(s => s.id));
-  standbyConfigs.forEach(slot => {
-    if (!renderedIds.has(parseInt(slot.id, 10))) {
-      rowsHtml += `
-        <tr class="standby-row">
-          <td>
-            <div class="participant-cell">
-              <div class="participant-avatar-badge mono" style="background: var(--bg-recessed-well); color: var(--ink-tertiary); border: 1px dashed var(--hairline-strong);">${slot.id}</div>
-              <div class="participant-info">
-                <span class="participant-name" style="color: var(--ink-secondary); font-size: 13px;">${slot.name}</span>
-                <span class="participant-sub">${slot.loc}</span>
-              </div>
-            </div>
-          </td>
-          <td>
-            <div class="posture-cell">
-              <span class="dot-indicator" style="background: var(--ink-tertiary);"></span>
-              <div class="posture-text-group">
-                <span class="posture-state-title" style="color: var(--ink-secondary); font-weight: 400;">Awaiting optical lock</span>
-              </div>
-            </div>
-          </td>
-          <td><span class="standby-cell-empty mono">—</span></td>
-          <td><span class="standby-cell-empty mono">—</span></td>
-          <td><span class="standby-cell-empty mono">—</span></td>
-          <td><span class="standby-cell-empty mono">—</span></td>
-        </tr>
-      `;
-    }
   });
 
   tbody.innerHTML = rowsHtml;
@@ -1527,23 +1479,35 @@ function initActionHandlers() {
       const yaw = cur.yaw.toFixed(1);
 
       const briefText = [
-        `CAMS Session Brief — ${sessionConfig.className || 'Classroom Session'} (${sessionConfig.room || 'Hall'})`,
-        sessionConfig.instructor ? `• Lead Instructor: ${sessionConfig.instructor}` : null,
-        `• Rolling Mean Focus: ${mean.toFixed(1)}% | Instantaneous Focus: ${cur.focus.toFixed(1)}% (${delta >= 0 ? '+' : ''}${delta.toFixed(1)}% vs mean)`,
-        `• Board Alignment: ${cur.facing.toFixed(1)}% | Active Pose: Pitch ${pitch}°, Yaw ${yaw}°`,
-        `• Peak Fatigue Vector: MAR ${cur.mar.toFixed(2)} | EAR ${cur.ear.toFixed(2)} (Gate: ${(engine.gateHoldMs / 1000).toFixed(1)}s / 2.0s)`,
-        `• AI Pedagogical Takeaway: ${document.getElementById('ai-pulse-headline')?.textContent || 'Cohort stable'}`
+        `=======================================================`,
+        `CAMS CLASSROOM ATTENTION MONITORING SYSTEM — REPORT`,
+        `=======================================================`,
+        `Course: ${sessionConfig.className || 'Classroom Session'}`,
+        `Room: ${sessionConfig.room || 'Optical Studio'}`,
+        sessionConfig.instructor ? `Instructor: ${sessionConfig.instructor}` : null,
+        `Date: ${new Date().toLocaleDateString()} | Time: ${new Date().toLocaleTimeString()}`,
+        ``,
+        `ENGAGEMENT TELEMETRY:`,
+        `• Session Rolling Mean Focus: ${mean.toFixed(1)}%`,
+        `• Instantaneous Attention: ${cur.focus.toFixed(1)}%`,
+        `• Board / Presentation Alignment: ${cur.facing.toFixed(1)}%`,
+        `• Primary Head Angle: Pitch ${pitch}°, Yaw ${yaw}°`,
+        `• Kinematic Baselines: EAR ${cur.ear.toFixed(2)} (Eyelids), MAR ${cur.mar.toFixed(2)} (Mouth)`,
+        ``,
+        `OBSERVATION NOTES:`,
+        `• ${document.getElementById('ai-pulse-headline')?.textContent || 'Cohort maintaining stable engagement.'}`,
+        `=======================================================`
       ].filter(Boolean).join("\n");
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(briefText).then(() => {
-          if (btnCopyBriefText) btnCopyBriefText.textContent = '✓ Brief Copied';
+          if (btnCopyBriefText) btnCopyBriefText.textContent = '✓ Summary Copied';
           setTimeout(() => {
-            if (btnCopyBriefText) btnCopyBriefText.textContent = 'Copy Session Brief';
+            if (btnCopyBriefText) btnCopyBriefText.textContent = 'Copy Session Summary';
           }, 2000);
         });
       } else {
-        showToast('Brief copied to clipboard!');
+        showToast('Summary copied to clipboard!');
       }
     });
   }
@@ -1556,20 +1520,20 @@ function initActionHandlers() {
       deskExerciseMode = !deskExerciseMode;
       btnMuteDesk.classList.toggle('active', deskExerciseMode);
       if (deskExerciseMode) {
-        if (btnMuteDeskText) btnMuteDeskText.textContent = '✓ Desk Mode Active (5m)';
-        showToast('Desk Exercise Mode Active: Downward pitch classified as on-task note-taking.');
-        logIncident('Desk Exercise Mode enabled: Downward gaze muted', 'blue', 'Pitch < -12° classified as active problem-solving');
+        if (btnMuteDeskText) btnMuteDeskText.textContent = '✓ Desk Mode Active';
+        showToast('Desk-Work Mode Active: Downward pitch classified as on-task note-taking.');
+        logIncident('Desk-Work Mode enabled: Downward gaze muted', 'blue', 'Downward head posture classified as active problem-solving');
         if (deskExerciseTimeout) clearTimeout(deskExerciseTimeout);
         deskExerciseTimeout = setTimeout(() => {
           deskExerciseMode = false;
           btnMuteDesk.classList.remove('active');
-          if (btnMuteDeskText) btnMuteDeskText.textContent = 'Mute Desk-Gaze Alerts (5m)';
-          logIncident('Desk Exercise Mode expired: Standard gaze cone restored', 'green');
+          if (btnMuteDeskText) btnMuteDeskText.textContent = 'Toggle Desk-Work Mode';
+          logIncident('Desk-Work Mode expired: Standard gaze cone restored', 'green');
         }, 300000);
       } else {
-        if (btnMuteDeskText) btnMuteDeskText.textContent = 'Mute Desk-Gaze Alerts (5m)';
+        if (btnMuteDeskText) btnMuteDeskText.textContent = 'Toggle Desk-Work Mode';
         if (deskExerciseTimeout) clearTimeout(deskExerciseTimeout);
-        showToast('Desk Exercise Mode Disabled');
+        showToast('Desk-Work Mode Disabled');
       }
       updateAIPulseCard();
     });

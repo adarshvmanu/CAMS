@@ -288,14 +288,14 @@
             <div class="video-viewport">
               <div class="video-frosted-pill">
                 <span class="dot-indicator green"></span>
-                <span>CAM 01 · Spring-Damped Track</span>
+                <span>Camera Feed · Real-Time Optical Stream</span>
               </div>
 
               <!-- Reticle canvas overlay -->
               <canvas id="video-reticle-canvas" class="video-reticle-canvas"></canvas>
 
               <!-- Video Stream -->
-              <img id="camera-feed" class="video-stream-elem" src="/video_feed" alt="Real-Time Vision Stream" onerror="this.src='Images/istockphoto-1332100919-612x612.jpg';" />
+              <img id="camera-feed" class="video-stream-elem" src="/video_feed" alt="Real-Time Vision Stream" />
 
               <!-- 3D Head-Pose Sphere Gizmo -->
               <div id="gizmo-hud-container" class="gizmo-hud-container">
@@ -312,13 +312,13 @@
             <!-- Footer Layer Control Bar -->
             <div class="layer-controls-bar">
               <div class="layer-pills-group">
-                <span class="layer-label">Canvas Layers</span>
-                <button class="layer-pill-btn active" data-layer="reticle">Spring Reticle</button>
+                <span class="layer-label">Overlays</span>
+                <button class="layer-pill-btn active" data-layer="reticle">Face Reticle</button>
                 <button class="layer-pill-btn active" data-layer="gizmo">3D Pose Gizmo</button>
-                <button class="layer-pill-btn" data-layer="mesh">468-Pt Mesh</button>
+                <button class="layer-pill-btn" data-layer="mesh">Mesh Points</button>
                 <button class="layer-pill-btn" data-layer="blur">Identity Blur</button>
               </div>
-              <span class="layer-render-meta mono">WebGL · 14.2ms · Zero-Jitter</span>
+              <span class="layer-render-meta mono">Zero-Copy RAM Stream · 30.0 FPS</span>
             </div>
           </div>
 
@@ -326,8 +326,8 @@
           <div class="temporal-curve-pane">
             <div class="pane-section-header">
               <div class="pane-title-group">
-                <span class="pane-title">Temporal Engagement &amp; Biometric Curve</span>
-                <span class="pane-subtitle">· Cubic-Bezier Interpolated Stream</span>
+                <span class="pane-title">Classroom Engagement &amp; Telemetry Curve</span>
+                <span class="pane-subtitle">· Real-Time Trend</span>
               </div>
               <div class="curve-segmented-filter">
                 <button class="filter-tab-btn active" data-filter="all">All</button>
@@ -360,25 +360,6 @@
             <!-- Chart Canvas (Stretches to fill entire height cleanly) -->
             <div class="chart-canvas-container">
               <canvas id="master-chart-canvas"></canvas>
-            </div>
-
-            <!-- Lecture Syllabus Sync Scrubber -->
-            <div class="syllabus-sync-wrapper">
-              <span class="syllabus-sync-label">LECTURE SYLLABUS SYNC</span>
-              <div class="syllabus-grid">
-                <div class="syllabus-pill" id="syl-segment-1">
-                  <span class="syl-title">I. Session Setup &amp; Roll Call</span>
-                  <span class="syl-sub mono tabular-nums">00:00 – 00:08 · Baseline Calibrated</span>
-                </div>
-                <div class="syllabus-pill" id="syl-segment-2">
-                  <span class="syl-title">II. Problem Set &amp; Interaction</span>
-                  <span class="syl-sub mono tabular-nums">00:08 – 00:15 · Focus Synchronized</span>
-                </div>
-                <div class="syllabus-pill active-phase" id="syl-segment-3">
-                  <span class="syl-title"><span class="syl-active-dot"></span><span id="syl-active-title">III. Active Lecture Phase</span></span>
-                  <span class="syl-sub mono tabular-nums"><span id="syl-active-elapsed">00:15</span> – Present · Live Telemetry Synced</span>
-                </div>
-              </div>
             </div>
 
             <!-- Real Telemetry Status Footer (Aligned with Left Pane Layer Controls) -->
@@ -438,34 +419,34 @@
               </div>
             </div>
 
-            <!-- AI Lecture Pulse Card -->
+            <!-- Classroom Engagement Digest Card -->
             <div id="ai-pulse-card" class="ai-pulse-card stable">
               <div class="ai-pulse-header-row">
                 <div class="ai-pulse-title-wrap">
-                  <svg class="ai-pulse-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0L14.6 9.4L24 12L14.6 14.6L12 24L9.4 14.6L0 12L9.4 9.4L12 0Z"/>
+                  <svg class="ai-pulse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                   </svg>
-                  <span class="ai-pulse-micro-title">AI Lecture Pulse · 30s Digest</span>
+                  <span class="ai-pulse-micro-title">Classroom Engagement Digest</span>
                 </div>
-                <span class="mono tabular-nums" style="font-size: 10.5px; color: var(--ink-tertiary);">Auto-synthesized</span>
+                <span class="mono tabular-nums" style="font-size: 10.5px; color: var(--ink-tertiary);">Live Observation</span>
               </div>
 
               <div class="ai-pulse-body">
                 <p id="ai-pulse-headline" class="ai-pulse-headline">
-                  Scanning optical feed — awaiting participants in camera field of view.
+                  Scanning optical field of view — awaiting participants.
                 </p>
                 <p id="ai-pulse-detail" class="ai-pulse-detail">
-                  Auto-Adaptive tracking is ready to measure eye closure, yawning kinematics, and head pose.
+                  Tracking active facial geometry, eye aspect ratios, and head orientation in real time.
                 </p>
               </div>
 
               <div class="ai-pulse-chips-row">
-                <button id="btn-copy-brief" class="pulse-action-chip" title="Copy executive plain-text session brief to clipboard">
-                  <span>✦</span>
-                  <span id="btn-copy-brief-text">Copy Session Brief</span>
+                <button id="btn-copy-brief" class="pulse-action-chip" title="Copy institutional plain-text session report to clipboard">
+                  <span>📋</span>
+                  <span id="btn-copy-brief-text">Copy Session Summary</span>
                 </button>
                 <button id="btn-mute-desk" class="pulse-action-chip" title="Classify downward pitch as focused desk note-taking">
-                  <span id="btn-mute-desk-text">Mute Desk-Gaze Alerts (5m)</span>
+                  <span id="btn-mute-desk-text">Toggle Desk-Work Mode</span>
                 </button>
               </div>
             </div>
@@ -474,7 +455,7 @@
             <div class="telemetry-timeline-container">
               <div class="telemetry-timeline-thread"></div>
               <div id="telemetry-event-list" class="telemetry-timeline-list">
-                <!-- Dynamically populated without wrapping text -->
+                <!-- Dynamically populated with real telemetry events -->
               </div>
             </div>
           </div>
@@ -484,12 +465,14 @@
       <!-- MASTER ARCHITECTURAL FOOTER STRIP -->
       <footer class="studio-footer-strip">
         <div class="footer-strip-inner mono">
-          <span class="footer-tag">Motion Pipeline</span>
-          <span class="footer-stat">Bounding Frame: 60fps EMA Lerp (alpha=0.22)</span>
+          <span class="footer-tag">CAMS v3.0</span>
+          <span class="footer-stat">Classroom Attention Monitoring System</span>
           <span class="footer-sep">·</span>
-          <span class="footer-stat">Numerals: 4Hz Tabular Throttle</span>
+          <span class="footer-stat">Department of Computer Science &amp; Engineering</span>
           <span class="footer-sep">·</span>
-          <span class="footer-stat">State Gate: 2.0s SVG Ring Hysteresis</span>
+          <span class="footer-stat">Edge Computer Vision Telemetry</span>
+          <span class="footer-sep">·</span>
+          <span class="footer-stat">FERPA/GDPR Compliant</span>
         </div>
       </footer>
     </div>
