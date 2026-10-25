@@ -1,76 +1,210 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAMS</title>
-    <link href='https://fonts.googleapis.com/css?family=Poppins' rel='stylesheet'>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="css/style.css" />
-    <script src="js/plotly.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAMS Studio — Classroom Attention Monitoring System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/plotly.min.js"></script>
 </head>
-
 <body>
-    <nav id="desktop-nav">
-        <div class="logo">CAMS</div>
-        <div>
-            <ul class="nav-links">
-                <li><a href="Index.html">Home</a></li>
-                <li><a href="about.html">About</a></li>
-                <li><a href="Team.html">Team</a></li>
-            </ul>
-        </div>
-    </nav>
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                        <div class="overall-attention-container">
-                            <p class="overall-attention">0%</p>
-                            <p class="student-count">Average Attention From 0 Students</p>
-                            <p class="attention-count"></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="attentionscore" style="width: 100%; height:100%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="drowsy" style="width: 100%; height:100%"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="yawn" style="width: 100%; height:100%"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="facing" style="width: 100%; height:100%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- Header Bar -->
+  <header class="studio-header">
+    <div class="brand-section">
+      <span class="brand-logo">CAMS Studio</span>
+      <span class="session-title">Live Classroom Session</span>
     </div>
+    <div class="header-actions">
+      <div id="connection-badge" class="status-badge disconnected">
+        <span class="pulse-dot"></span>
+        <span id="connection-text">CONNECTING...</span>
+      </div>
+      <button id="btn-export-csv" class="btn-export" title="Export session metrics to CSV">
+        ⬇ Export CSV
+      </button>
+    </div>
+  </header>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script src="js/script.js"></script>
+  <!-- Main 12-Col Studio Grid -->
+  <main class="studio-grid">
+    <!-- Left Column: Video Feed + 4-Seat Roster -->
+    <section class="studio-col">
+      <!-- Embedded Live Camera Stream -->
+      <div class="panel-card video-card">
+        <div class="panel-header">
+          <span class="panel-title">Live Video Monitor</span>
+          <span id="video-feed-stats" class="text-muted" style="font-size: 0.75rem;">Connecting...</span>
+        </div>
+        <div class="video-container">
+          <div class="video-tag">CAM 0 &bull; 640&times;360 &bull; FaceMesh</div>
+          <img id="camera-feed" src="/video_feed" alt="Live Camera Feed" onerror="this.src='Images/istockphoto-1332100919-612x612.jpg';" />
+        </div>
+      </div>
+
+      <!-- 4-Seat Student Roster Matrix -->
+      <div class="panel-card roster-card">
+        <div class="panel-header">
+          <span class="panel-title">Per-Student Roster Matrix</span>
+          <span id="roster-active-count" class="text-muted" style="font-size: 0.75rem;">0 / 4 Active</span>
+        </div>
+        <div class="roster-grid">
+          <!-- Student Card #1 -->
+          <div id="seat-1" class="seat-card empty">
+            <div class="seat-header">
+              <span class="seat-name">Student #1</span>
+              <span class="seat-status-pill">Empty Slot</span>
+            </div>
+            <div class="seat-score-row">
+              <span class="seat-score">&mdash;</span>
+              <span class="seat-score-label">ATTENTION</span>
+            </div>
+            <div class="seat-metrics">
+              <div class="metric-bar-row">
+                <span>EAR (Eyes)</span>
+                <span class="ear-val">&mdash;</span>
+                <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
+              </div>
+              <div class="metric-bar-row">
+                <span>MAR (Mouth)</span>
+                <span class="mar-val">&mdash;</span>
+                <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student Card #2 -->
+          <div id="seat-2" class="seat-card empty">
+            <div class="seat-header">
+              <span class="seat-name">Student #2</span>
+              <span class="seat-status-pill">Empty Slot</span>
+            </div>
+            <div class="seat-score-row">
+              <span class="seat-score">&mdash;</span>
+              <span class="seat-score-label">ATTENTION</span>
+            </div>
+            <div class="seat-metrics">
+              <div class="metric-bar-row">
+                <span>EAR (Eyes)</span>
+                <span class="ear-val">&mdash;</span>
+                <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
+              </div>
+              <div class="metric-bar-row">
+                <span>MAR (Mouth)</span>
+                <span class="mar-val">&mdash;</span>
+                <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student Card #3 -->
+          <div id="seat-3" class="seat-card empty">
+            <div class="seat-header">
+              <span class="seat-name">Student #3</span>
+              <span class="seat-status-pill">Empty Slot</span>
+            </div>
+            <div class="seat-score-row">
+              <span class="seat-score">&mdash;</span>
+              <span class="seat-score-label">ATTENTION</span>
+            </div>
+            <div class="seat-metrics">
+              <div class="metric-bar-row">
+                <span>EAR (Eyes)</span>
+                <span class="ear-val">&mdash;</span>
+                <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
+              </div>
+              <div class="metric-bar-row">
+                <span>MAR (Mouth)</span>
+                <span class="mar-val">&mdash;</span>
+                <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student Card #4 -->
+          <div id="seat-4" class="seat-card empty">
+            <div class="seat-header">
+              <span class="seat-name">Student #4</span>
+              <span class="seat-status-pill">Empty Slot</span>
+            </div>
+            <div class="seat-score-row">
+              <span class="seat-score">&mdash;</span>
+              <span class="seat-score-label">ATTENTION</span>
+            </div>
+            <div class="seat-metrics">
+              <div class="metric-bar-row">
+                <span>EAR (Eyes)</span>
+                <span class="ear-val">&mdash;</span>
+                <div class="metric-track"><div class="metric-fill ear-fill" style="width: 0%"></div></div>
+              </div>
+              <div class="metric-bar-row">
+                <span>MAR (Mouth)</span>
+                <span class="mar-val">&mdash;</span>
+                <div class="metric-track"><div class="metric-fill mar-fill" style="width: 0%"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: KPI Bar + Consolidated Timeline + Incident Feed -->
+    <section class="studio-col">
+      <!-- 4 KPI Summary Tiles -->
+      <div class="kpi-row">
+        <div class="kpi-tile">
+          <span class="kpi-label">Class Attention</span>
+          <span id="kpi-overall" class="kpi-val">0%</span>
+        </div>
+        <div class="kpi-tile">
+          <span class="kpi-label">Attentive Count</span>
+          <span id="kpi-attentive" class="kpi-val">0 / 0</span>
+        </div>
+        <div class="kpi-tile">
+          <span class="kpi-label">Facing Board</span>
+          <span id="kpi-facing" class="kpi-val">0%</span>
+        </div>
+        <div class="kpi-tile">
+          <span class="kpi-label">Drowsy / Yawn</span>
+          <span id="kpi-drowsy" class="kpi-val">0%</span>
+        </div>
+      </div>
+
+      <!-- Master Multi-Trace Timeline Chart -->
+      <div class="panel-card timeline-card">
+        <div class="panel-header">
+          <span class="panel-title">Classroom Engagement Timeline (100-pt Window)</span>
+          <div class="timeline-tabs">
+            <button class="tab-btn active" data-filter="all">All</button>
+            <button class="tab-btn" data-filter="attention">Attention</button>
+            <button class="tab-btn" data-filter="facing">Facing</button>
+            <button class="tab-btn" data-filter="drowsy">Drowsy</button>
+            <button class="tab-btn" data-filter="yawn">Yawn</button>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <div id="master-timeline" style="width: 100%; height: 100%;"></div>
+        </div>
+      </div>
+
+      <!-- Live Incident / Event Feed -->
+      <div class="panel-card events-card">
+        <div class="panel-header">
+          <span class="panel-title">Recent Telemetry Events</span>
+          <span class="text-muted" style="font-size: 0.7rem;">Auto-scrolling</span>
+        </div>
+        <div id="events-list" class="events-list">
+          <div class="event-row">
+            <span>Session monitor initialized</span>
+            <span class="event-time">--:--:--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/script.js"></script>
 </body>
 </html>

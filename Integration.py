@@ -1,192 +1,47 @@
-import mediapipe as mp
-import cv2 as cv
-from scipy.spatial import distance as dis
-import time
-import numpy as np
-import json
 import os
 import sys
-from statistics import mean
+import time
+import json
+import cv2 as cv
+import mediapipe as mp
+import numpy as np
+
+from cams.landmarks import (
+    LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT,
+    RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT,
+    UPPER_LOWER_LIPS, LEFT_RIGHT_LIPS
+)
+from cams.detectors import compute_ear, compute_mar, estimate_head_pose
+from cams.tracker import MultiStudentTracker
+from cams.hud import render_student_overlay, render_top_bar, print_ansi_status
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_FILE_PATH = os.path.join(SCRIPT_DIR, 'Page', 'data.json')
+PAGE_DIR = os.path.join(SCRIPT_DIR, 'Page')
+DATA_FILE_PATH = os.path.join(PAGE_DIR, 'data.json')
+DATA_TMP_PATH = os.path.join(PAGE_DIR, 'data.json.tmp')
+FRAME_FEED_PATH = os.path.join(PAGE_DIR, 'camera_feed.jpg')
+FRAME_FEED_TMP = os.path.join(PAGE_DIR, 'camera_feed.jpg.tmp')
+SNAPSHOT_PATH = os.path.join(SCRIPT_DIR, 'camera_check.jpg')
 
-overall_score=[]
-
-def draw_landmarks(image, outputs, land_mark, color):
-    height, width = image.shape[:2]
-             
-    for idx, face_landmarks in enumerate(outputs.multi_face_landmarks):
-        for face in land_mark:
-            point = face_landmarks.landmark[face]
-            point_scale = ((int)(point.x * width), (int)(point.y*height))
-            cv.circle(image, point_scale, 2, color, 1)
-            
-def euclidean_distance(image, top, bottom):
-    height, width = image.shape[0:2]
-            
-    point1 = int(top.x * width), int(top.y * height)
-    point2 = int(bottom.x * width), int(bottom.y * height)
-    
-    distance = dis.euclidean(point1, point2)
-    return distance
-
-def get_aspect_ratio(image, outputs, top_bottom, left_right):
-    aspect_ratios = []
-    for face_landmarks in outputs.multi_face_landmarks:
-        top = face_landmarks.landmark[top_bottom[0]]
-        bottom = face_landmarks.landmark[top_bottom[1]]
-        top_bottom_dis = euclidean_distance(image, top, bottom)
-        
-        left = face_landmarks.landmark[left_right[0]]
-        right = face_landmarks.landmark[left_right[1]]
-        left_right_dis = euclidean_distance(image, left, right)
-
-        aspect_ratio = left_right_dis / top_bottom_dis
-
-        if len(top_bottom) == 4:
-            top = face_landmarks.landmark[top_bottom[2]]
-            bottom = face_landmarks.landmark[top_bottom[3]]
-            top_bottom_dis_2 = euclidean_distance(image, top, bottom)
-            aspect_ratio = (top_bottom_dis+top_bottom_dis_2)/(2*left_right_dis)
-
-        aspect_ratios.append(aspect_ratio)
-    return aspect_ratios
-
-def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom,size):
-    sleep_weight = 0.5
-    yawn_weight = 0.3
-    facing_weight = 0.2
-    attention_scores = []
-    facing_count=0
-    sleep_count=0
-    yawn_count=0
-    attention_count=0
-
-    for i in range(size):
-        sleep_score = 0 if sleep_detected[i] else 100
-        yawn_score = 0 if yawn_detected[i] else 100
-        facing_score = 100 if facing_classroom[i] else 0
-
-        if facing_classroom[i]==True:
-            facing_count+=1
-        if yawn_detected[i]==True:
-            yawn_count+=1
-        if sleep_detected[i]==True:
-            sleep_count+=1
-            sleep_weight = 0.7
-            yawn_weight = 0.2
-            facing_weight = 0.1
-        
-        total_score = (sleep_score * sleep_weight) + (yawn_score * yawn_weight) + (facing_score * facing_weight)
-        if total_score >= 80 :
-            attention_count+=1
-        attention_scores.append(total_score)
-        
-    attention_score=mean(attention_scores) 
-    overall_score.append(attention_score)  
-    sleep=((sleep_count)/size)*100
-    yawn=((yawn_count)/size)*100
-    head=((facing_count)/size)*100
-    pack_json(attention_count,attention_score,sleep,yawn,head,size)
- 
-def pack_json(attention_count,attention_score, sleep, yawn, head,size):
-    current_time = time.localtime()
-    timestamp = time.strftime("%H-%M-%S", current_time)
-    
-    data = {
-        "timestamp" : timestamp,
-        "attention_scores": attention_score,
-        "attention_count": attention_count,
-        "sleep_detected": sleep,
-        "yawn_detected": yawn,
-        "facing_classroom": head,
-        "overall_score": round(mean(overall_score),2),
-        "count": size
-    }
-    
-    json_data = json.dumps({"chart":data})
-    
-    try:
-        with open(DATA_FILE_PATH, 'w') as file:  
-            file.write(json_data)  
-    except IOError as e:
-        print("Error writing to data.json:", e)
-    
-face_mesh = mp.solutions.face_mesh
-draw_utils = mp.solutions.drawing_utils
-landmark_style = draw_utils.DrawingSpec((0,255,0), thickness=1, circle_radius=1)
-connection_style = draw_utils.DrawingSpec((0,0,255), thickness=1, circle_radius=1)
-
-
-mp_face_mesh = mp.solutions.face_mesh
-mp_drawing = mp.solutions.drawing_utils
-
-STATIC_IMAGE_MODE = False
-MAX_NUM_FACES = 4
-DETECTION_CONFIDENCE = 0.6
-TRACKING_CONFIDENCE = 0.6
-
-COLOR_RED = (0, 0, 255)
-COLOR_BLUE = (255, 0, 0)
-COLOR_GREEN = (0, 255, 0)
-
-LEFT_EYE_TOP_BOTTOM = [386, 374, 385, 380]
-LEFT_EYE_LEFT_RIGHT = [263, 362]
-
-RIGHT_EYE_TOP_BOTTOM = [160, 144, 158, 153]
-RIGHT_EYE_LEFT_RIGHT = [133, 33]
-
-UPPER_LOWER_LIPS = [13, 14]
-LEFT_RIGHT_LIPS = [78, 308]
-
-
-face_model = mp_face_mesh.FaceMesh(
-    static_image_mode=STATIC_IMAGE_MODE,
-    max_num_faces=MAX_NUM_FACES,
-    min_detection_confidence=DETECTION_CONFIDENCE,
-    min_tracking_confidence=TRACKING_CONFIDENCE)
-
-video_source = None
-display_window = True
-
-for arg in sys.argv[1:]:
-    if arg == '--no-display':
-        display_window = False
-    elif arg.isdigit():
-        video_source = int(arg)
-    elif not arg.startswith('--'):
-        video_source = arg
-
-# No source given: use the first camera that returns a real picture.
-if video_source is None:
-    candidate_sources = [0, 1, 2, 3]
-else:
-    candidate_sources = [video_source]
-
-BRIGHTNESS_MIN = 8  # mean pixel value (0-255) below this counts as a black frame
-
+# Camera backend detection & options
 def backends_for(source):
-    # On Windows the default MSMF backend often opens a webcam but never
-    # returns frames, so try DirectShow first.
     if sys.platform == 'win32' and isinstance(source, int):
         return [(cv.CAP_DSHOW, 'DirectShow'), (cv.CAP_MSMF, 'MSMF')]
     return [(cv.CAP_ANY, 'default')]
 
-def probe(source, backend):
-    # Returns (capture, is_bright). capture is None if no frame ever arrived.
+def probe_camera(source, backend):
     cap = cv.VideoCapture(source, backend)
     if not cap.isOpened():
         cap.release()
         return None, False
     got_frame = False
-    for _ in range(40):  # up to ~4 s for auto-exposure to settle
+    for _ in range(30):
         ok, frame = cap.read()
         if ok:
             got_frame = True
-            if not isinstance(source, int) or frame.mean() > BRIGHTNESS_MIN:
+            if not isinstance(source, int) or frame.mean() > 8:
                 return cap, True
-        time.sleep(0.1)
+        time.sleep(0.08)
     if got_frame:
         return cap, False
     cap.release()
@@ -196,185 +51,209 @@ def open_capture(sources):
     dark = None
     for source in sources:
         for backend, name in backends_for(source):
-            cap, bright = probe(source, backend)
+            cap, bright = probe_camera(source, backend)
             if cap is None:
                 continue
             if bright:
-                print(f"Using video source '{source}' ({name}).")
+                print(f"[CAMS] Using video source '{source}' ({name}).")
                 return cap
-            print(f"Video source '{source}' ({name}) is returning black frames.")
             cap.release()
             if dark is None:
                 dark = (source, backend, name)
     if dark is not None:
         source, backend, name = dark
-        print(f"No camera gave a picture; falling back to '{source}' ({name}).")
-        print("The feed may stay black: another app may be using the camera, or the")
-        print("camera has a privacy shutter/cover. Try 'start.bat 1' for another camera.")
+        print(f"[CAMS] Fallback to video source '{source}' ({name}).")
         return cv.VideoCapture(source, backend)
     return None
 
-capture = open_capture(candidate_sources)
-is_camera = video_source is None or isinstance(video_source, int)
-if capture is None:
-    print(f"Error: Unable to open video source '{video_source if video_source is not None else 'camera'}'.")
-    print("If using webcam, check camera permissions in your OS privacy settings (Settings > Privacy > Camera on Windows).")
-    print("You can also run with a video file: python Integration.py /path/to/video.mp4")
-    sys.exit(1)
+def write_atomic_json(summary_data):
+    """Writes telemetry once per second using an atomic rename."""
+    current_time = time.localtime()
+    timestamp = time.strftime("%H:%M:%S", current_time)
 
-min_frame = 22
-min_tolerance = 0.22
-frame_count=[0]*MAX_NUM_FACES
-sleep_detected=[False]*MAX_NUM_FACES
-yawn_detected=[False]*MAX_NUM_FACES
-facing_classroom=[False]*MAX_NUM_FACES
-overall_score=[]
-exit_code = 0
+    # Payload matching Section 4 Fix 4.1 in CAMS Remediation Plan
+    payload = {
+        "chart": {
+            "timestamp": timestamp,
+            "overall_score": summary_data["overall_score"],
+            "count": summary_data["count"],
+            "attention_count": summary_data["attention_count"],
+            "sleep_detected": summary_data["sleep_detected"],
+            "yawn_detected": summary_data["yawn_detected"],
+            "facing_classroom": summary_data["facing_classroom"],
+            "attention_scores": [s["score"] for s in summary_data["students"] if s["active"]] or [0.0],
+            "students": summary_data["students"]
+        }
+    }
 
-# Status line every few seconds so a silent console is distinguishable from
-# a stalled one, plus a snapshot of the first frame to inspect.
-SNAPSHOT_PATH = os.path.join(SCRIPT_DIR, 'camera_check.jpg')
-STATUS_INTERVAL = 2.0
-frames_done = 0
-frames_at_report = 0
-last_report = time.time()
+    try:
+        os.makedirs(PAGE_DIR, exist_ok=True)
+        with open(DATA_TMP_PATH, 'w') as f:
+            json.dump(payload, f)
+        os.replace(DATA_TMP_PATH, DATA_FILE_PATH)
+    except Exception as e:
+        print(f"\n[CAMS] Error writing telemetry JSON: {e}")
 
-
-while True:
-    success, image = capture.read()
-    if not success:
-        print("End of video stream or cannot fetch frame.")
-        if is_camera:
-            exit_code = 1
-        break
-
-    frames_done += 1
-    if frames_done == 1:
-        cv.imwrite(SNAPSHOT_PATH, image)
-        print(f"First frame: {image.shape[1]}x{image.shape[0]}, brightness {image.mean():.0f}/255. Saved to {SNAPSHOT_PATH}")
-
-    image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-    results = face_model.process(image_rgb)
-    img_h, img_w, img_c = image.shape
-    head=[]
-    face_count=0
-    if results.multi_face_landmarks:
-        for face_landmarks in results.multi_face_landmarks:
-            face_count+=1
-            face_2d = np.empty((0, 2), dtype=np.float64)
-            face_3d = np.empty((0, 3), dtype=np.float64)
-            for idx, lm in enumerate(face_landmarks.landmark):
-                if idx == 33 or idx == 263 or idx == 1 or idx == 61 or idx == 291 or idx == 199:
-                    if idx == 1:
-                        nose_2d = (lm.x * img_w, lm.y * img_h)
-                        nose_3d = (lm.x * img_w, lm.y * img_h, lm.z * 3000)
-
-                    x, y = int(lm.x * img_w), int(lm.y * img_h)
-
-                    face_2d = np.vstack([face_2d, [x, y]])
-
-                    face_3d = np.vstack([face_3d, [x, y, lm.z]])                        
-
-            #Converting to numpy arrays
-            face_2d = np.array(face_2d, dtype=np.float64)
-            face_3d = np.array(face_3d, dtype=np.float64)
-
-            #Camera
-            focal_length = 1 * img_w
-
-            #Camera Matrix and Distance Matrix
-            cam_matrix = np.array([ [focal_length, 0, img_h / 2],
-                                    [0, focal_length, img_w / 2],
-                                    [0, 0, 1]])
-            dist_matrix = np.zeros((4, 1), dtype=np.float64)
+def write_atomic_frame(image):
+    """Writes annotated frame for MJPEG streaming."""
+    try:
+        # Resize for optimal stream performance
+        feed_img = cv.resize(image, (640, 360)) if (image.shape[1] > 640) else image
+        cv.imwrite(FRAME_FEED_TMP, feed_img, [cv.IMWRITE_JPEG_QUALITY, 75])
+        os.replace(FRAME_FEED_TMP, FRAME_FEED_PATH)
+    except Exception:
+        pass
 
 
-            success, rot_vec, trans_vec = cv.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
-            rmat, jac = cv.Rodrigues(rot_vec)
-            angles, mtxR, mtxQ, Qx, Qy, Qz = cv.RQDecomp3x3(rmat)
+def main():
+    video_source = None
+    display_window = True
 
-            x = angles[0] * 360
-            y = angles[1] * 360
-            z = angles[2] * 360
-            
-            if y < -10:
-                head.append("Left")
-            elif y > 10:
-                head.append("Right")
-            elif x < -10:
-                head.append("Down")
-            elif x > 15:
-                head.append("Up")
-            else:
-                head.append("Forward")
+    for arg in sys.argv[1:]:
+        if arg == '--no-display':
+            display_window = False
+        elif arg.isdigit():
+            video_source = int(arg)
+        elif not arg.startswith('--'):
+            video_source = arg
 
-            # Display the nose direction
-            nose_3d_projection, jacobian = cv.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
+    candidate_sources = [0, 1, 2, 3] if video_source is None else [video_source]
+    capture = open_capture(candidate_sources)
 
-            p1 = (int(nose_2d[0]), int(nose_2d[1]))
-            p2 = (int(nose_2d[0] + y * 10) , int(nose_2d[1] - x * 10))
-            
-            cv.line(image, p1, p2, (255, 0, 0), 3) 
+    if capture is None:
+        print(f"[CAMS] Error: Unable to open video source '{video_source or 'camera'}'.")
+        print("Please check camera permissions or run with a video file: python Integration.py video.mp4")
+        sys.exit(1)
 
-        draw_landmarks(image, results, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
-        draw_landmarks(image, results, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
-        aspect_ratios_left = get_aspect_ratio(image, results, LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT)
+    # Initialize MediaPipe FaceMesh
+    mp_face_mesh = mp.solutions.face_mesh
+    face_model = mp_face_mesh.FaceMesh(
+        static_image_mode=False,
+        max_num_faces=4,
+        refine_landmarks=False,
+        min_detection_confidence=0.6,
+        min_tracking_confidence=0.6
+    )
 
-        draw_landmarks(image, results, RIGHT_EYE_TOP_BOTTOM, COLOR_RED)
-        draw_landmarks(image, results, RIGHT_EYE_LEFT_RIGHT, COLOR_RED)
-        aspect_ratios_right = get_aspect_ratio(image, results, RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT)
+    tracker = MultiStudentTracker(max_faces=4, max_jump_radius=0.18)
 
-        draw_landmarks(image, results, LEFT_RIGHT_LIPS, COLOR_BLUE)
-        draw_landmarks(image, results, UPPER_LOWER_LIPS, COLOR_BLUE)
-        aspect_ratios_lips = get_aspect_ratio(image, results, UPPER_LOWER_LIPS, LEFT_RIGHT_LIPS )
-
-
-        for idx, (ratio_left, ratio_right, ratio_lips) in enumerate(zip(aspect_ratios_left, aspect_ratios_right,aspect_ratios_lips)):
-            ratio=(ratio_left + ratio_right) / 2   
-            if ratio < min_tolerance:
-                frame_count[idx] +=1
-            else:
-                frame_count[idx] = 0
-       
-            if frame_count[idx] > min_frame:
-                sleep_detected[idx]=True
-            else:
-                sleep_detected[idx]=False
-
-            if ratio_lips < 1.8:
-                yawn_detected[idx]=True
-            else:
-                yawn_detected[idx]=False
-
-    for idx, t in enumerate(head):
-        if head[idx]=="Forward":
-            facing_classroom[idx]=True
-        else:
-            facing_classroom[idx]=False
-
-    if face_count != 0:
-        calculate_attention_score(sleep_detected,yawn_detected,facing_classroom,face_count)
-        print(f"Sleep: {sleep_detected} Yawn : {yawn_detected} Facing : {facing_classroom}\n")
-
-    now = time.time()
-    if now - last_report >= STATUS_INTERVAL:
-        fps = (frames_done - frames_at_report) / (now - last_report)
-        print(f"[status] frames={frames_done} fps={fps:.1f} brightness={image.mean():.0f} faces={face_count}")
-        frames_at_report = frames_done
-        last_report = now
-
-    cv.putText(image, f"Faces: {face_count}", (10, 25), cv.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_GREEN, 2)
-    face_count=0
-
-
+    window_name = "CAMS Live Monitor"
     if display_window:
-        cv.imshow('Integrated', image)
-        if cv.waitKey(5) & 0xFF == 27:
+        cv.namedWindow(window_name, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO)
+
+    last_json_time = 0.0
+    last_frame_feed_time = 0.0
+    frame_count = 0
+    t_start = time.time()
+    fps = 30.0
+
+    print("[CAMS] Tracking pipeline active. Press 'Esc' to exit.")
+
+    while True:
+        success, image = capture.read()
+        if not success:
+            print("\n[CAMS] Video stream ended or frame fetch failed.")
             break
-    else:
-        time.sleep(0.01)
-    
-capture.release()
-if display_window:
-    cv.destroyAllWindows()
-sys.exit(exit_code)
+
+        frame_count += 1
+        now = time.time()
+        if frame_count % 15 == 0:
+            elapsed = now - t_start
+            if elapsed > 0:
+                fps = 15.0 / elapsed
+            t_start = now
+
+        if frame_count == 1:
+            cv.imwrite(SNAPSHOT_PATH, image)
+
+        img_h, img_w = image.shape[:2]
+        image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+        results = face_model.process(image_rgb)
+
+        detected_faces = []
+
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                # 1. Centroid (from nose landmark 1)
+                nose_lm = face_landmarks.landmark[1]
+                centroid = (nose_lm.x, nose_lm.y)
+
+                # 2. EAR (Eye Aspect Ratio)
+                ear_left = compute_ear(face_landmarks, img_w, img_h, LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT)
+                ear_right = compute_ear(face_landmarks, img_w, img_h, RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT)
+                ear_avg = (ear_left + ear_right) / 2.0
+
+                # 3. MAR (Mouth Aspect Ratio)
+                mar, _, _ = compute_mar(face_landmarks, img_w, img_h, UPPER_LOWER_LIPS, LEFT_RIGHT_LIPS)
+
+                # 4. Head Pose (Euler angles)
+                pitch, yaw, roll, direction, rot_vec, trans_vec, cam_matrix, dist_matrix = estimate_head_pose(
+                    face_landmarks, img_w, img_h
+                )
+
+                detected_faces.append({
+                    "centroid": centroid,
+                    "ear": ear_avg,
+                    "mar": mar,
+                    "pitch": pitch,
+                    "yaw": yaw,
+                    "roll": roll,
+                    "direction": direction,
+                    "rot_vec": rot_vec,
+                    "trans_vec": trans_vec,
+                    "cam_matrix": cam_matrix,
+                    "dist_matrix": dist_matrix,
+                    "face_landmarks": face_landmarks
+                })
+
+        # Update multi-student tracker
+        summary = tracker.update(detected_faces)
+
+        # Render HUD annotations on video image
+        for track in tracker.tracks:
+            if not track.is_active:
+                continue
+            # Find the detection that matched this track to get its landmark & pose vectors
+            matched_det = None
+            if track.centroid is not None:
+                for det in detected_faces:
+                    if det["centroid"] == track.centroid:
+                        matched_det = det
+                        break
+            if matched_det:
+                render_student_overlay(
+                    image, track, matched_det["face_landmarks"],
+                    matched_det["rot_vec"], matched_det["trans_vec"],
+                    matched_det["cam_matrix"], matched_det["dist_matrix"]
+                )
+
+        render_top_bar(image, fps, summary["count"], summary["overall_score"])
+
+        # In-place terminal status table (Fix 5.2 #5)
+        print_ansi_status(fps, summary["count"], summary)
+
+        # Atomic telemetry write throttled to 1 Hz (Fix 4.1)
+        if now - last_json_time >= 1.0:
+            write_atomic_json(summary)
+            last_json_time = now
+
+        # Update live camera stream frame for browser (10-15 Hz)
+        if now - last_frame_feed_time >= 0.08:
+            write_atomic_frame(image)
+            last_frame_feed_time = now
+
+        if display_window:
+            cv.imshow(window_name, image)
+            if cv.waitKey(1) & 0xFF == 27:  # Esc key
+                break
+        else:
+            time.sleep(0.005)
+
+    capture.release()
+    if display_window:
+        cv.destroyAllWindows()
+    print("\n[CAMS] Tracking terminated cleanly.")
+
+
+if __name__ == '__main__':
+    main()

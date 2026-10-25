@@ -1,98 +1,90 @@
-# Classroom Attention Monitoring System
+# Classroom Attention Monitoring System (CAMS)
 
-This project aims to track the attentiveness of the students in a classroom. The project contains 3 modules which are split and integrated to achieve the final system. We will be using modules such as :
+CAMS is a multi-modal computer vision and real-time telemetry studio designed to track classroom student attentiveness using non-invasive facial landmark analysis.
 
-1. Eye Closure and Opening Detection
-2. Yawn Detection 
-3. HeadPose Detection 
+---
 
-We are using Mediapipe for this project which is an open-source framework by Google, which helps to perform tasks which fall into the array of Computer Vision etc. Mediapipe also reduces the dependence of GPU so that it becomes easy to work.
+## 1. Core Modules & Engineering Architecture
 
-Let's see how each module is build 
+The system extracts 468 facial landmarks via Google MediaPipe FaceMesh (CPU-optimized) and computes composite engagement metrics:
 
-**EAR (Eye Aspect Ratio)**
+1. **Eye Aspect Ratio (EAR) & Drowsiness Hysteresis:**
+   - Tracks eyelid distances using canonical landmarks `[386, 374, 385, 380]` and `[160, 144, 158, 153]`.
+   - Threshold: `EAR < 0.22` sustained for `> 22 frames` triggers prolonged drowsiness alerts.
+2. **Mouth Aspect Ratio (MAR) & Yawn Detection:**
+   - Computes lip aspect ratio with zero-division protection: `ratio_lips = lip_width / max(lip_height, 1e-5)`.
+   - Yawn detection hysteresis requires `MIN_YAWN_FRAMES = 15` (~0.5s) to eliminate false triggers from speaking vowels.
+3. **Canonical 3D Head Pose Estimation:**
+   - Pinhole camera intrinsic matrix calibrated with optical center: `cx = img_w / 2`, `cy = img_h / 2`.
+   - Solves Perspective-n-Point (`solvePnP`) using a rigid 6-point anthropometric 3D face model `[1, 199, 33, 263, 61, 291]`.
+   - Determines pitch, yaw, roll, and orientation (`Forward`, `Looking Left`, `Looking Right`, `Looking Up`, `Looking Down`).
+4. **Multi-Student Centroid Tracker (`cams/tracker.py`):**
+   - Tracks up to 4 concurrent students using minimum Euclidean centroid distance matching (maximum jump radius 0.18).
+   - Rebalanced attention weights: `w_sleep = 0.45`, `w_facing = 0.35`, `w_yawn = 0.20` (looking away immediately drops instant score to 65%).
+   - Smoothed per-student Exponential Moving Average (`EMA, α = 0.15`).
+   - Strict Attentive Gate: student is marked attentive only when `EMA >= 80%`, `facing == True`, and `sleep == False`.
+5. **IPC & Web Studio Streaming (`server.py`):**
+   - Zero Node.js dependency: Python native HTTP, RFC 6455 WebSocket, and MJPEG `/video_feed` server.
+   - Throttled atomic telemetry writes to `Page/data.json` at 1 Hz using `os.replace`.
+   - Dark-slate single-screen Command Center with live camera stream, 4-seat student roster matrix, 100-point sliding window timeline, and CSV export.
 
-The Functionalities of the Module :
- 1. Tracks the movement of both the eyelids to sense the movement.
- 2. Involves the calculation of the Eye Aspect Ratio.
- 3. Calculates both the frequency and duration of the eyes blinking.
- 4. Finally detects drowsiness and prolonged closure. 
+---
 
-**Implementation**
+## 2. Quick Start
 
-This Python script detects drowsiness in faces captured through a webcam using facial landmarks extracted with the MediaPipe FaceMesh model, OpenCV for video processing, and SciPy for calculating distances.
+### Prerequisites
+- Python 3.10, 3.11, or 3.12
+- macOS, Linux, or Windows
 
-1. Import necessary libraries including media pipe, cv2 (OpenCV), and scipy.
-2. Define functions:
-    1. `draw_landmarks`: Draws landmarks on the face detected by MediaPipe.
-    2. `euclidean_distance`: Calculates the Euclidean distance between two points.
-    3. `get_aspect_ratio`: Calculates the aspect ratio of specific facial landmarks.
-3. Set up configurations for the MediaPipe FaceMesh model.
-4. Define configurations and constants such as colors and facial landmark indices.
-5. Initialize the MediaPipe FaceMesh model and a video capture object.
-6. Enter a loop where it continuously captures frames from the webcam.
-7. Process each frame through the FaceMesh model to detect faces and facial landmarks.
-8. Calculate the aspect ratio for both eyes and determine if drowsiness is detected based on certain thresholds.
-9. Print timestamps and alerts if drowsiness is detected in any of the faces.
-10. Display the processed frame with landmarks drawn using OpenCV.
-11. Exit the loop if the 'Esc' key is pressed.
+### macOS / Linux:
+```bash
+./start.sh
+```
 
-**Yawn Detection**
+### Windows:
+Double-click `start.bat` or run:
+```cmd
+start.bat
+```
 
-**Functionalities of the module**
+### Custom Run Arguments:
+- Run with a specific camera index: `./start.sh 1`
+- Run with a prerecorded video file: `./start.sh classroom_video.mp4`
+- Run headless (no desktop window popup): `./start.sh --no-display`
 
-1. Calculates the Mouth Aspect Ratio to determine the degree of mouth openess.
-2. Tracks the frequency of yawning.
-3. Measure the duration of yawning events.
+---
 
-**Implementation** 
+## 3. Package Structure
 
-This Python script uses MediaPipe FaceMesh to detect facial landmarks and identifies yawning based on the aspect ratio of the mouth. Here's a breakdown of the code:
+```
+CAMS/
+├── cams/
+│   ├── __init__.py
+│   ├── landmarks.py      # Canonical landmark indices & 3D face model
+│   ├── detectors.py      # Pure functions: compute_ear, compute_mar, estimate_head_pose
+│   ├── tracker.py        # MultiStudentTracker with centroid matching & EMA scoring
+│   └── hud.py            # Corner-bracket bounding boxes, badges & ANSI telemetry
+├── Page/
+│   ├── Index.html        # Unified Dark-Slate CAMS Studio Dashboard
+│   ├── css/style.css     # Design tokens & 12-col responsive grid
+│   ├── js/script.js      # Plotly multi-trace timeline (100-pt window) & WebSocket client
+│   └── server/server.js  # Alternative Node.js WebSocket & static server
+├── Integration.py        # Main computer vision pipeline & telemetry publisher
+├── server.py             # Zero-dependency Python HTTP + WebSocket + MJPEG server
+├── start.sh              # POSIX launcher script
+├── start.bat             # Windows launcher script
+├── requirements.txt      # Pinned dependency specifications
+├── Test.py               # Automated unit tests
+└── REPRODUCE.md          # Step-by-step reproduction guide
+```
 
-1. Import necessary libraries: `mediapipe` for face mesh detection, `cv2` for OpenCV operations, and `scipy.spatial.distance` for calculating distances.
-2. Define functions:
-   1. `draw_landmarks`: Draws specified landmarks on the face detected by MediaPipe FaceMesh.
-   2. `euclidean_distance`: Calculates the Euclidean distance between two points.
-   3. `get_aspect_ratio`: Calculates the aspect ratio of mouth landmarks.
-3. Set configurations and constants for the MediaPipe FaceMesh model, such as confidence thresholds, colors, and facial landmark indices for the mouth.
-4. Initialize the FaceMesh model and the video capture object.
-5. Enter a loop to continuously capture frames from the webcam.
-6. Process each frame through the FaceMesh model to detect facial landmarks.
-7. Calculate the aspect ratio of the mouth based on specified mouth landmarks.
-8. Check if the aspect ratio is below a certain tolerance for yawning detection.
-9. If yawning is detected (aspect ratio below the tolerance for a certain number of consecutive frames), print a message indicating the detection.
-10. Display the annotated frame with landmarks and yawning detection using OpenCV (`cv2.imshow()`).
-11. Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).
+---
 
-**HeadPose Detection**
+## 4. Future Scope & V2.0 Research Roadmap
 
-Functionalities of this Module:
- 1. Tracks the head position in real time.
- 2. Find the head orientation by calculating pitch, yaw and roll angles.
-
-**Implementation** 
-
-This Python script performs real-time head pose estimation using facial landmarks detected by the MediaPipe FaceMesh model.
-
-1. Import necessary libraries, including cv2 (OpenCV), mediapipe, and numpy.
-2. Set up MediaPipe FaceMesh model for facial landmark detection.
-3. Initialize the webcam capture using OpenCV (`cv2.VideoCapture`).
-4. Enter a loop to continuously capture frames from the webcam (`cap.isOpened()`).
-5. Read a frame from the webcam capture (`cap.read()`).
-6. Convert the color space of the frame from BGR to RGB and flips it horizontally for later selfie-view display.
-7. Process the frame through the FaceMesh model to detect facial landmarks.
-8. Convert the color space of the frame back to BGR.
-9. Iterate through the detected facial landmarks and extracts specific points of interest, such as nose, eyes, etc.
-10. Calculate the 3D coordinates of the detected facial landmarks.
-11. Estimate the head pose (yaw, pitch, roll) using the solved PnP (Perspective-n-Point) algorithm.
-12. Determine the direction of the user's gaze based on the head pose angles.
-13. Draw a line representing the direction of the gaze on the frame.
-14. Display the direction of gaze and head pose angles (x, y, z) on the frame.
-15. Calculate and display the frames per second (FPS) of the video stream.
-16. Display the annotated frame with landmarks and gaze direction using OpenCV (`cv2.imshow()`).
-17. Exit the loop if the 'Esc' key is pressed (`cv2.waitKey()`).
-
-
-This module will be integrated to produce the whole system which will produce real-time results. This will give you information on whether a class is attentive or not based on the average of each module's probability scores.
-
-
+- **True Eye-in-Head Iris Gaze Tracking:** Enable `refine_landmarks=True` (landmarks 468–477) to detect downcast glances at phones/laptops when head is facing forward.
+- **Per-Seat Angle Auto-Calibration:** 10-second start-of-class baseline vector to eliminate looking-away penalties for side-row seats.
+- **Posture & Hand-Raise Recognition:** MediaPipe Pose / YOLOv8n-Pose keypoint tracking.
+- **Temporal Deep Learning Engagement Classifier:** 1D-TCN / BiLSTM engagement classifier trained on DAiSEE / EngageNet.
+- **Wide-Room Multi-Face Scaling (30+ Students):** Two-stage detect-then-crop pipeline with ByteTrack.
+- **Edge Privacy Mode:** Volatile RAM processing with zero persistent video recording.

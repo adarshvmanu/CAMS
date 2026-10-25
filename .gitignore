@@ -1,9 +1,12 @@
 /Page/server/node_modules
 .venv
+.venv/
 __pycache__/
 *.py[cod]
 .DS_Store
 .node/
-camera_check.jpgPage/data.json
+camera_check.jpg
+Page/data.json
 Page/data.json.tmp
-.venv/
+Page/camera_feed.jpg
+Page/camera_feed.jpg.tmp
