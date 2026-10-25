@@ -6,6 +6,8 @@ __pycache__/
 .DS_Store
 .node/
 camera_check.jpg
+.cams*
+cams.log
 Page/data.json
 Page/data.json.tmp
 Page/camera_feed.jpg

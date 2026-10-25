@@ -5,6 +5,8 @@ import json
 import base64
 import hashlib
 import struct
+import signal
+import atexit
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import socketserver
@@ -16,6 +18,30 @@ PORT = int(os.environ.get("PORT", 3000))
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PAGE_DIR = os.path.join(SCRIPT_DIR, "Page")
 DATA_FILE_PATH = os.path.join(PAGE_DIR, "data.json")
+STATE_FILE = os.path.join(SCRIPT_DIR, ".cams_state.json")
+PID_FILE = os.path.join(SCRIPT_DIR, ".cams.pid")
+
+is_running = True
+
+def cleanup_state():
+    global is_running
+    is_running = False
+    for path in (STATE_FILE, PID_FILE):
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except Exception:
+            pass
+
+atexit.register(cleanup_state)
+
+def handle_signal(sig, frame):
+    cleanup_state()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, handle_signal)
+if hasattr(signal, "SIGTERM"):
+    signal.signal(signal.SIGTERM, handle_signal)
 
 # In-memory pipeline state
 pipeline_lock = threading.Lock()
@@ -96,69 +122,74 @@ def vision_pipeline_thread(video_source=0):
 
     last_broadcast_time = 0.0
 
-    while True:
-        success, image = cap.read()
-        if not success:
-            time.sleep(0.03)
-            continue
+    try:
+        while is_running:
+            success, image = cap.read()
+            if not success:
+                time.sleep(0.03)
+                continue
 
-        # Sync calibration & capacity
-        pipeline.set_calibration(
-            calibration_settings["pitch_offset"],
-            calibration_settings["yaw_offset"]
-        )
-        pipeline.set_max_capacity(calibration_settings["max_faces"])
+            # Sync calibration & capacity
+            pipeline.set_calibration(
+                calibration_settings["pitch_offset"],
+                calibration_settings["yaw_offset"]
+            )
+            pipeline.set_max_capacity(calibration_settings["max_faces"])
 
-        # Process frame through unified pipeline
-        image, summary, fps = pipeline.process_frame(image, draw_hud=True)
-        now = time.time()
+            # Process frame through unified pipeline
+            image, summary, fps = pipeline.process_frame(image, draw_hud=True)
+            now = time.time()
 
-        # Client-aware JPEG compression (encodes only if a browser is actively watching)
-        with clients_lock:
-            need_stream = (active_video_clients > 0)
+            # Client-aware JPEG compression (encodes only if a browser is actively watching)
+            with clients_lock:
+                need_stream = (active_video_clients > 0)
 
-        if need_stream or latest_jpeg is None:
-            feed_img = cv.resize(image, (640, 360)) if (image.shape[1] > 640) else image
-            ret, buf = cv.imencode('.jpg', feed_img, [cv.IMWRITE_JPEG_QUALITY, 80])
-            if ret:
-                with frame_condition:
-                    latest_jpeg = buf.tobytes()
-                    frame_condition.notify_all()
+            if need_stream or latest_jpeg is None:
+                feed_img = cv.resize(image, (640, 360)) if (image.shape[1] > 640) else image
+                ret, buf = cv.imencode('.jpg', feed_img, [cv.IMWRITE_JPEG_QUALITY, 80])
+                if ret:
+                    with frame_condition:
+                        latest_jpeg = buf.tobytes()
+                        frame_condition.notify_all()
 
-        # Telemetry broadcast throttled to 1 Hz
-        if now - last_broadcast_time >= 1.0:
-            timestamp = time.strftime("%H:%M:%S")
-            payload = {
-                "chart": {
-                    "timestamp": timestamp,
-                    "fps": round(fps, 1),
-                    "overall_score": summary["overall_score"],
-                    "count": summary["count"],
-                    "attention_count": summary["attention_count"],
-                    "sleep_detected": summary["sleep_detected"],
-                    "yawn_detected": summary["yawn_detected"],
-                    "facing_classroom": summary["facing_classroom"],
-                    "attention_scores": [s["score"] for s in summary["students"]] or [0.0],
-                    "students": summary["students"],
-                    "calibration": calibration_settings
+            # Telemetry broadcast throttled to 1 Hz
+            if now - last_broadcast_time >= 1.0:
+                timestamp = time.strftime("%H:%M:%S")
+                payload = {
+                    "chart": {
+                        "timestamp": timestamp,
+                        "fps": round(fps, 1),
+                        "overall_score": summary["overall_score"],
+                        "count": summary["count"],
+                        "attention_count": summary["attention_count"],
+                        "sleep_detected": summary["sleep_detected"],
+                        "yawn_detected": summary["yawn_detected"],
+                        "facing_classroom": summary["facing_classroom"],
+                        "attention_scores": [s["score"] for s in summary["students"]] or [0.0],
+                        "students": summary["students"],
+                        "calibration": calibration_settings
+                    }
                 }
-            }
-            json_str = json.dumps(payload)
-            with pipeline_lock:
-                latest_telemetry = payload
+                json_str = json.dumps(payload)
+                with pipeline_lock:
+                    latest_telemetry = payload
 
-            # Atomic disk save for REST polling fallback
-            try:
-                os.makedirs(PAGE_DIR, exist_ok=True)
-                tmp_file = DATA_FILE_PATH + ".tmp"
-                with open(tmp_file, "w") as f:
-                    f.write(json_str)
-                os.replace(tmp_file, DATA_FILE_PATH)
-            except Exception:
-                pass
+                # Atomic disk save for REST polling fallback
+                try:
+                    os.makedirs(PAGE_DIR, exist_ok=True)
+                    tmp_file = DATA_FILE_PATH + ".tmp"
+                    with open(tmp_file, "w") as f:
+                        f.write(json_str)
+                    os.replace(tmp_file, DATA_FILE_PATH)
+                except Exception:
+                    pass
 
-            broadcast_telemetry(json_str)
-            last_broadcast_time = now
+                broadcast_telemetry(json_str)
+                last_broadcast_time = now
+    finally:
+        print("[CAMS Vision Engine] Releasing optical sensor...")
+        cap.release()
+        cv.destroyAllWindows()
 
 
 # HTTP Server & WebSocket Request Handler
@@ -352,6 +383,20 @@ def main():
     if server is None:
         print(f"Error: Could not bind to any port from {PORT} to {PORT + 20}")
         return
+
+    # Record process state for external controller / clean-kill
+    try:
+        with open(PID_FILE, "w") as f:
+            f.write(str(os.getpid()))
+        with open(STATE_FILE, "w") as f:
+            json.dump({
+                "pid": os.getpid(),
+                "port": active_port,
+                "source": str(video_source),
+                "started_at": time.time()
+            }, f, indent=2)
+    except Exception:
+        pass
 
     print(f"\n=======================================================")
     print(f"  CAMS Studio Unified Live Engine Active")
