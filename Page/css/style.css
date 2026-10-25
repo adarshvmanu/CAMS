@@ -1073,6 +1073,112 @@ html, body {
   animation: pulseDot 1.4s infinite alternate;
 }
 
+/* Milestone Anomaly Pins Strip along top of Chart */
+.chart-anomaly-pins {
+  position: absolute;
+  top: 6px;
+  left: 45px;
+  right: 15px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+  z-index: 15;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chart-anomaly-pins::-webkit-scrollbar { display: none; }
+
+.anomaly-pin-chip {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.anomaly-pin-chip:hover {
+  transform: translateY(-1px) scale(1.02);
+  border-color: var(--signal-blue);
+  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.15);
+}
+
+.anomaly-pin-chip.fatigue {
+  border-left: 2.5px solid var(--signal-red);
+  color: #D70015;
+}
+
+.anomaly-pin-chip.desk {
+  border-left: 2.5px solid var(--signal-amber);
+  color: #C25E00;
+}
+
+.anomaly-pin-chip.divergent {
+  border-left: 2.5px solid var(--signal-blue);
+  color: var(--signal-blue);
+}
+
+/* Interactive Mini Timeline Scrub Bar */
+.chart-scrub-bar {
+  position: absolute;
+  bottom: 0px;
+  left: 40px;
+  right: 10px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--hairline-strong);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  z-index: 18;
+}
+
+.scrub-track {
+  flex: 1;
+  height: 6px;
+  background: #EBEBEF;
+  border-radius: 3px;
+  position: relative;
+  cursor: pointer;
+  margin-right: 12px;
+}
+
+.scrub-handle {
+  position: absolute;
+  top: -3px;
+  height: 12px;
+  background: var(--signal-blue);
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 113, 227, 0.4);
+  cursor: grab;
+  transition: background 140ms ease;
+}
+
+.scrub-handle:active {
+  cursor: grabbing;
+  background: #005bb5;
+}
+
+.scrub-hint {
+  font-size: 9.5px;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
 /* Real Telemetry Status Footer */
 .timeline-footer-bar {
   margin-top: 12px;

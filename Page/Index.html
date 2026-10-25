@@ -367,6 +367,9 @@
             <div class="chart-canvas-container" id="chart-canvas-wrapper">
               <canvas id="master-chart-canvas"></canvas>
 
+              <!-- Interactive Milestone Anomaly Pins Strip -->
+              <div id="chart-anomaly-pins" class="chart-anomaly-pins"></div>
+
               <!-- Interactive Crop Selection Marquee Box -->
               <div id="chart-crop-marquee" class="chart-crop-marquee hidden">
                 <div class="crop-corner top-left"></div>
@@ -393,6 +396,14 @@
                   <button id="btn-hud-copy" class="hud-action-btn" title="Copy Slice Telemetry to Clipboard">📋 Copy Slice</button>
                   <button id="btn-hud-reset" class="hud-action-btn hud-reset-btn" title="Reset Zoom to Live Stream (Double-Click or Esc)">⟲ Live Stream</button>
                 </div>
+              </div>
+
+              <!-- Interactive Mini Timeline Scrub Bar (Active when zoomed) -->
+              <div id="chart-scrub-bar" class="chart-scrub-bar hidden">
+                <div class="scrub-track" id="scrub-track">
+                  <div id="chart-scrub-handle" class="scrub-handle"></div>
+                </div>
+                <span class="scrub-hint mono">Shift+Drag or drag slider to scrub timeline</span>
               </div>
             </div>
 

@@ -33,9 +33,12 @@ class StudentTrack:
         self.yawn_detected = False
         self.facing_classroom = True
 
-        # Attention scoring
+        # Attention scoring & predictive kinematics
         self.instant_score = 100.0
         self.ema_score = 100.0
+        self.prev_ema_score = 100.0
+        self.attention_velocity = 0.0
+        self.impending_divergence = False
         self.is_attentive = True
         self.status = "Attentive"
 
@@ -120,9 +123,20 @@ class StudentTrack:
 
         self.instant_score = (s_sleep * w_sleep) + (s_yawn * w_yawn) + (s_facing * w_facing)
 
-        # Smooth per-student score with Exponential Moving Average (alpha = 0.15)
-        EMA_ALPHA = 0.15
-        self.ema_score = (EMA_ALPHA * self.instant_score) + ((1.0 - EMA_ALPHA) * self.ema_score)
+        # Asymmetric Kinematic Damper:
+        # Fast-attack on genuine distraction / drowsiness (alpha = 0.35)
+        # Calm decay on recovery to baseline (alpha = 0.12) to eliminate eye-blink / micro-twitch jitter
+        if self.instant_score < self.ema_score:
+            alpha = 0.35
+        else:
+            alpha = 0.12
+
+        self.prev_ema_score = self.ema_score
+        self.ema_score = (alpha * self.instant_score) + ((1.0 - alpha) * self.ema_score)
+
+        # 1st-order attention derivative (velocity: % change per frame)
+        self.attention_velocity = round(self.ema_score - self.prev_ema_score, 2)
+        self.impending_divergence = bool(self.attention_velocity < -3.0 and not self.facing_classroom)
 
         # Determine semantic status
         if self.sleep_detected:
@@ -150,6 +164,8 @@ class StudentTrack:
         return {
             "id": self.student_id,
             "score": round(self.ema_score, 1),
+            "velocity": self.attention_velocity,
+            "impending_divergence": self.impending_divergence,
             "ear": round(self.ear, 2),
             "mar": round(self.mar, 2),
             "yaw": round(self.yaw, 1),

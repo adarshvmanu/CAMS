@@ -452,7 +452,42 @@ function renderVideoReticleCanvas() {
   ctx.lineTo(x + w, y + h - len);
   ctx.stroke();
 
-  // 3. Floating Frosted Pill Above Face (Apple visionOS / Linear style)
+  // 3. Precision 3D Gaze Vector Ray
+  const centerX = x + w * 0.5;
+  const centerY = y + h * 0.45;
+  const yawRad = ((primary.yaw || 0) * Math.PI) / 180;
+  const pitchRad = ((primary.pitch || 0) * Math.PI) / 180;
+  const rayLen = Math.min(48, w * 0.42);
+  const targetRayX = centerX + Math.sin(yawRad) * rayLen;
+  const targetRayY = centerY - Math.sin(pitchRad) * rayLen;
+
+  ctx.save();
+  ctx.lineWidth = 1.5;
+  const gazeGrad = ctx.createLinearGradient(centerX, centerY, targetRayX, targetRayY);
+  gazeGrad.addColorStop(0, 'rgba(0, 113, 227, 0.2)');
+  gazeGrad.addColorStop(1, isAlert ? 'rgba(255, 59, 48, 0.85)' : (isWarn ? 'rgba(255, 159, 10, 0.85)' : 'rgba(0, 113, 227, 0.85)'));
+  ctx.strokeStyle = gazeGrad;
+  ctx.setLineDash([3, 2.5]);
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY);
+  ctx.lineTo(targetRayX, targetRayY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Target focal reticle ring
+  ctx.fillStyle = isAlert ? '#FF3B30' : (isWarn ? '#FF9F0A' : '#0071E3');
+  ctx.beginPath();
+  ctx.arc(targetRayX, targetRayY, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = isAlert ? 'rgba(255, 59, 48, 0.4)' : (isWarn ? 'rgba(255, 159, 10, 0.4)' : 'rgba(0, 113, 227, 0.4)');
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(targetRayX, targetRayY, 6, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // 4. Floating Frosted Pill Above Face (Apple visionOS / Linear style)
   let statusTag = primary.status || 'Attentive';
   if (primary.mar > 0.60) {
     statusTag = `Yawn Hold ${(engine.gateHoldMs / 1000).toFixed(1)}s`;
@@ -954,16 +989,18 @@ function initMasterChart() {
   });
 
   // --------------------------------------------------------------------------
-  // INTERACTIVE CROP & ZOOM MARQUEE CONTROLLER (MOUSE DRAG / BRUSH SELECTION)
+  // INTERACTIVE CROP, PAN & ZOOM CONTROLLER (MOUSE DRAG / BRUSH SELECTION)
   // --------------------------------------------------------------------------
   let isDragging = false;
+  let isPanning = false;
   let dragStartX = 0;
   let dragStartY = 0;
+  let panStartX = 0;
   const marquee = document.getElementById('chart-crop-marquee');
   const cropBadge = document.getElementById('crop-badge');
 
   function onMouseDown(e) {
-    if (e.button !== 0 || !chartInstance) return;
+    if (!chartInstance) return;
     const ca = chartInstance.chartArea;
     if (!ca) return;
     const rect = canvas.getBoundingClientRect();
@@ -971,6 +1008,17 @@ function initMasterChart() {
     const y = e.clientY - rect.top;
 
     if (x < ca.left || x > ca.right || y < ca.top || y > ca.bottom) return;
+
+    // Shift + Left Click or Middle Click enters Horizontal Timeline Pan Mode
+    if (chartZoomState.isZoomed && (e.shiftKey || e.button === 1)) {
+      isPanning = true;
+      panStartX = e.clientX;
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      return;
+    }
+
+    if (e.button !== 0) return;
 
     isDragging = true;
     dragStartX = x;
@@ -981,6 +1029,17 @@ function initMasterChart() {
   }
 
   function onMouseMove(e) {
+    if (isPanning) {
+      const dx = e.clientX - panStartX;
+      if (Math.abs(dx) >= 10) {
+        const span = chartZoomState.endIndex - chartZoomState.startIndex;
+        const step = Math.max(1, Math.round(span * 0.08));
+        panZoomWindow(-Math.sign(dx) * step);
+        panStartX = e.clientX;
+      }
+      return;
+    }
+
     if (!isDragging || !chartInstance) return;
     const ca = chartInstance.chartArea;
     const rect = canvas.getBoundingClientRect();
@@ -1012,6 +1071,13 @@ function initMasterChart() {
   }
 
   function onMouseUp(e) {
+    if (isPanning) {
+      isPanning = false;
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      return;
+    }
+
     if (!isDragging) return;
     isDragging = false;
     window.removeEventListener('mousemove', onMouseMove);
@@ -1089,12 +1155,19 @@ function initMasterChart() {
   });
 
   // --------------------------------------------------------------------------
-  // MOUSE WHEEL / PINCH TO ZOOM
+  // MOUSE WHEEL / PINCH TO ZOOM & HORIZONTAL TRACKPAD PAN
   // --------------------------------------------------------------------------
   canvas.addEventListener('wheel', function(e) {
-    e.preventDefault();
     if (masterTelemetryStream.labels.length < 5 || !chartInstance) return;
 
+    // Trackpad horizontal swipe pans the zoomed window
+    if (chartZoomState.isZoomed && Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 3) {
+      e.preventDefault();
+      panZoomWindow(Math.sign(e.deltaX) * 2);
+      return;
+    }
+
+    e.preventDefault();
     const delta = Math.sign(e.deltaY);
     const curLen = chartInstance.data.labels ? chartInstance.data.labels.length : 0;
 
@@ -1122,6 +1195,130 @@ function initMasterChart() {
       }
     }
   }, { passive: false });
+
+  // --------------------------------------------------------------------------
+  // INTERACTIVE MINI TIMELINE SCRUB TRACK DRAGGER
+  // --------------------------------------------------------------------------
+  const scrubTrack = document.getElementById('scrub-track');
+  if (scrubTrack) {
+    let isScrubbing = false;
+    scrubTrack.addEventListener('mousedown', (e) => {
+      if (!chartZoomState.isZoomed || masterTelemetryStream.labels.length < 5) return;
+      isScrubbing = true;
+
+      const handleScrub = (ev) => {
+        const rect = scrubTrack.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+        const total = masterTelemetryStream.labels.length;
+        const span = chartZoomState.endIndex - chartZoomState.startIndex;
+        const center = Math.round(ratio * total);
+        let s = Math.max(0, center - Math.floor(span / 2));
+        let end = s + span;
+        if (end >= total) {
+          end = total - 1;
+          s = Math.max(0, end - span);
+        }
+        applyChartZoom(s, end);
+      };
+
+      handleScrub(e);
+
+      const onScrubMove = (ev) => {
+        if (!isScrubbing) return;
+        handleScrub(ev);
+      };
+      const onScrubUp = () => {
+        isScrubbing = false;
+        window.removeEventListener('mousemove', onScrubMove);
+        window.removeEventListener('mouseup', onScrubUp);
+      };
+      window.addEventListener('mousemove', onScrubMove);
+      window.addEventListener('mouseup', onScrubUp);
+    });
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TIMELINE PANNING & MINI SCRUB BAR LOGIC
+// ----------------------------------------------------------------------------
+
+function panZoomWindow(delta) {
+  if (!chartZoomState.isZoomed) return;
+  const total = masterTelemetryStream.labels.length;
+  if (total <= 1) return;
+  const span = chartZoomState.endIndex - chartZoomState.startIndex;
+  let newStart = chartZoomState.startIndex + delta;
+  let newEnd = chartZoomState.endIndex + delta;
+
+  if (newStart < 0) {
+    newStart = 0;
+    newEnd = Math.min(total - 1, span);
+  }
+  if (newEnd >= total) {
+    newEnd = total - 1;
+    newStart = Math.max(0, newEnd - span);
+  }
+
+  applyChartZoom(newStart, newEnd);
+}
+
+function updateScrubBar() {
+  const scrubBar = document.getElementById('chart-scrub-bar');
+  const scrubHandle = document.getElementById('chart-scrub-handle');
+  if (!scrubBar || !scrubHandle) return;
+
+  if (!chartZoomState.isZoomed || masterTelemetryStream.labels.length < 5) {
+    scrubBar.classList.add('hidden');
+    return;
+  }
+
+  scrubBar.classList.remove('hidden');
+  const total = masterTelemetryStream.labels.length;
+  const startPct = (chartZoomState.startIndex / total) * 100;
+  const widthPct = Math.max(6, ((chartZoomState.endIndex - chartZoomState.startIndex + 1) / total) * 100);
+
+  scrubHandle.style.left = `${startPct}%`;
+  scrubHandle.style.width = `${widthPct}%`;
+}
+
+// ----------------------------------------------------------------------------
+// AUTOMATED ANOMALY MILESTONE PINS ARCHITECTURE
+// ----------------------------------------------------------------------------
+
+const anomalyPins = [];
+let lastAnomalyTimes = { fatigue: 0, desk: 0, divergent: 0 };
+
+function registerAnomalyPin(pin) {
+  const now = Date.now();
+  if (now - (lastAnomalyTimes[pin.type] || 0) < 12000) return; // 12s debounce per type
+  lastAnomalyTimes[pin.type] = now;
+
+  anomalyPins.push(pin);
+  if (anomalyPins.length > 8) anomalyPins.shift(); // retain recent 8 pins
+
+  renderAnomalyPins();
+}
+
+function renderAnomalyPins() {
+  const container = document.getElementById('chart-anomaly-pins');
+  if (!container) return;
+
+  container.innerHTML = '';
+  anomalyPins.forEach((pin) => {
+    const chip = document.createElement('div');
+    chip.className = `anomaly-pin-chip ${pin.type}`;
+    chip.title = `${pin.label} at ${pin.timestamp} · Click to isolate & inspect`;
+    chip.innerHTML = `<span>${pin.icon}</span> <span>${pin.label}</span> <span class="mono" style="opacity:0.65">${pin.timestamp}</span>`;
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const half = 12;
+      const start = Math.max(0, pin.index - half);
+      const end = Math.min(masterTelemetryStream.labels.length - 1, pin.index + half);
+      applyChartZoom(start, end);
+      showToast(`Inspecting milestone: ${pin.label}`, '🔍');
+    });
+    container.appendChild(chip);
+  });
 }
 
 // ----------------------------------------------------------------------------
@@ -1215,6 +1412,9 @@ function applyChartZoom(startIndex, endIndex) {
     const bufCount = document.getElementById('timeline-buffered-count');
     if (bufCount) bufCount.textContent = '0';
   }
+
+  // Update Mini Timeline Navigator Scrub Bar
+  updateScrubBar();
 }
 
 function resetChartZoom() {
@@ -1249,6 +1449,9 @@ function resetChartZoom() {
 
   const footerDesc = document.getElementById('timeline-footer-desc');
   if (footerDesc) footerDesc.textContent = '100-pt Sliding Window · 4-Trace Telemetry Stream';
+
+  // Update Mini Timeline Navigator Scrub Bar
+  updateScrubBar();
 }
 
 function calculateSliceStats(labels, focus, mean, facing, fatigue, frames, startIndex, endIndex) {
@@ -1656,6 +1859,17 @@ function copySliceReport(stats) {
 }
 
 function pushChartPoint(timestamp, focus, mean, facing, fatiguePct, frameData = null) {
+  // Memory Ring-Buffer: Keep up to 3,600 session frames (1 full hour at 1Hz) to guarantee zero memory bloat
+  const MAX_SESSION_FRAMES = 3600;
+  if (masterTelemetryStream.labels.length >= MAX_SESSION_FRAMES) {
+    masterTelemetryStream.labels.shift();
+    masterTelemetryStream.focus.shift();
+    masterTelemetryStream.mean.shift();
+    masterTelemetryStream.facing.shift();
+    masterTelemetryStream.fatigue.shift();
+    masterTelemetryStream.frames.shift();
+  }
+
   // Always buffer full telemetry packet into masterTelemetryStream
   masterTelemetryStream.labels.push(timestamp);
   masterTelemetryStream.focus.push(focus);
@@ -1663,6 +1877,36 @@ function pushChartPoint(timestamp, focus, mean, facing, fatiguePct, frameData = 
   masterTelemetryStream.facing.push(facing);
   masterTelemetryStream.fatigue.push(fatiguePct);
   masterTelemetryStream.frames.push(frameData || (sessionLogs.length > 0 ? sessionLogs[sessionLogs.length - 1] : null));
+
+  // Automatic Milestone Anomaly Pinning (Debounced to avoid alert fatigue)
+  if (fatiguePct >= 45) {
+    registerAnomalyPin({
+      timestamp,
+      index: masterTelemetryStream.labels.length - 1,
+      type: 'fatigue',
+      icon: '⚡',
+      label: `Yawn MAR ${(fatiguePct / 100 * 0.80).toFixed(2)}`
+    });
+  } else if (frameData && frameData.students && frameData.students[0]) {
+    const s = frameData.students[0];
+    if (s.pitch < -18.0) {
+      registerAnomalyPin({
+        timestamp,
+        index: masterTelemetryStream.labels.length - 1,
+        type: 'desk',
+        icon: '✍',
+        label: `Desk Pitch ${Number(s.pitch).toFixed(0)}°`
+      });
+    } else if (s.velocity < -3.5 || s.impending_divergence) {
+      registerAnomalyPin({
+        timestamp,
+        index: masterTelemetryStream.labels.length - 1,
+        type: 'divergent',
+        icon: '🚩',
+        label: `Gaze Divergence (${facing}%)`
+      });
+    }
+  }
 
   // Update Legend Values in real-time
   const legFocus = document.getElementById('leg-focus');
