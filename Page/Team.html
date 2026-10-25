@@ -6,94 +6,125 @@
   <title>The Engineering Team — CAMS Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- Shared Studio Header -->
-  <header class="studio-header">
-    <div class="brand-section">
-      <a href="Index.html" style="text-decoration: none;"><span class="brand-logo">CAMS Studio</span></a>
-      <span class="brand-badge">Engineering Team</span>
-    </div>
+  <div class="outer-viewport">
+    <div class="studio-sheet">
+      <!-- SHARED ARCHITECTURAL HEADER -->
+      <header class="studio-header">
+        <div class="header-left-zone">
+          <div class="brand-emblem" title="CAMS Vision Core">
+            <div class="brand-emblem-core"></div>
+          </div>
+          <div class="brand-breadcrumb">
+            <a href="Index.html" class="crumb-brand">CAMS</a>
+            <span class="crumb-sep">/</span>
+            <span class="crumb-course">Research &amp; Engineering Group</span>
+            <span class="crumb-room">· Founding Engineers</span>
+          </div>
 
-    <div class="header-controls">
-      <ul class="nav-links-row">
-        <li><a href="Index.html" class="nav-link-item">● Live Studio</a></li>
-        <li><a href="about.html" class="nav-link-item">About &amp; V2 Docs</a></li>
-        <li><a href="Team.html" class="nav-link-item active">The Team</a></li>
-      </ul>
-    </div>
-  </header>
+          <div class="header-divider-v"></div>
 
-  <div class="page-container">
-    <div class="page-hero">
-      <h1 class="page-hero-title">The Engineering Team Behind CAMS</h1>
-      <p class="page-hero-subtitle">
-        Honoring the founding engineers whose computer vision research, mathematical formulations, and core modules established the Classroom Attention Monitoring System.
-      </p>
-    </div>
-
-    <!-- 3 Core Developer Profile Cards -->
-    <div class="team-grid">
-      <!-- Member 1: Adarsh Varghese Manu -->
-      <div class="team-card">
-        <div class="team-avatar-box">AVM</div>
-        <h2 class="team-member-name">Adarsh Varghese Manu</h2>
-        <div class="team-member-role">Project Lead &bull; Head Pose Estimation</div>
-        <p class="team-member-desc">
-          Architected the real-time 3D Head Pose Estimation module. Pioneered the Perspective-n-Point (<code style="color: var(--accent-sky);">solvePnP</code>) algorithm integration and Euler angle decomposition (Pitch, Yaw, Roll) using MediaPipe 3D facial meshes to continuously monitor student classroom gaze orientation.
-        </p>
-        <div class="team-tags">
-          <span class="team-tag">Project Lead</span>
-          <span class="team-tag">3D solvePnP</span>
-          <span class="team-tag">Euler Decomposition</span>
-          <span class="team-tag">System Integration</span>
-          <span class="team-tag">OpenCV</span>
+          <ul class="view-switcher-tabs">
+            <li><a href="Index.html" class="view-tab-btn">Studio</a></li>
+            <li><a href="about.html" class="view-tab-btn">About &amp; V2 Docs</a></li>
+            <li><button class="view-tab-btn active">The Team</button></li>
+          </ul>
         </div>
-      </div>
 
-      <!-- Member 2: Archa Sekhar -->
-      <div class="team-card">
-        <div class="team-avatar-box" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(239, 68, 68, 0.2)); border-color: rgba(245, 158, 11, 0.4); color: var(--status-warn);">AS</div>
-        <h2 class="team-member-name">Archa Sekhar</h2>
-        <div class="team-member-role">CV Engineer &bull; Yawn Detection Lead</div>
-        <p class="team-member-desc">
-          Researched and implemented the Mouth Aspect Ratio (<code style="color: var(--status-warn);">MAR</code>) fatigue detection module. Developed facial landmark extraction protocols for lips and mouth boundaries, enabling non-invasive identification of student tiredness, yawning frequency, and fatigue onset in educational environments.
-        </p>
-        <div class="team-tags">
-          <span class="team-tag">Yawn Kinematics</span>
-          <span class="team-tag">Mouth Aspect Ratio</span>
-          <span class="team-tag">Facial Landmarks</span>
-          <span class="team-tag">Fatigue Analysis</span>
-          <span class="team-tag">MediaPipe</span>
+        <div class="header-right-zone">
+          <span class="mono tabular-nums" style="font-size: 11px; color: var(--ink-secondary);">CV Research Lab</span>
+          <a href="Index.html" class="btn-export-csv" style="text-decoration: none;">
+            <span>● Return to Studio</span>
+          </a>
         </div>
-      </div>
+      </header>
 
-      <!-- Member 3: B Anand -->
-      <div class="team-card">
-        <div class="team-avatar-box" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2)); border-color: rgba(16, 185, 129, 0.4); color: var(--status-good);">BA</div>
-        <h2 class="team-member-name">B Anand</h2>
-        <div class="team-member-role">CV Engineer &bull; Eye Closure &amp; EAR Lead</div>
-        <p class="team-member-desc">
-          Engineered the Eye Aspect Ratio (<code style="color: var(--status-good);">EAR</code>) drowsiness detection engine. Analyzed upper and lower eyelid coordinates to compute blink duration, eye closure velocities, and microsleep occurrences, establishing the core alertness metric used across CAMS.
-        </p>
-        <div class="team-tags">
-          <span class="team-tag">Eye Aspect Ratio</span>
-          <span class="team-tag">Eyelid Kinematics</span>
-          <span class="team-tag">Microsleep Detection</span>
-          <span class="team-tag">Web Telemetry</span>
-          <span class="team-tag">Real-Time CV</span>
+      <!-- TEAM ARCHITECTURAL VIEW -->
+      <main class="team-view-layout studio-view-transition">
+        <div class="team-header-block">
+          <h1 class="team-heading">The Founding Engineering Team</h1>
+          <p class="team-subheading">
+            Honoring the foundational computer vision engineers whose mathematical formulations, kinematic models, and core algorithms established the Classroom Attention Monitoring System (CAMS).
+          </p>
         </div>
-      </div>
-    </div>
 
-    <!-- Engineering Tribute & Legacy Note -->
-    <div class="team-tribute-box">
-      <h3 class="team-tribute-title">Foundational Research Tribute</h3>
-      <p class="team-tribute-text">
-        The V2.0 evolution of CAMS directly builds upon the core research foundations established by Adarsh, Archa, and Anand. Their commitment to GPU-free, lightweight computer vision ensures that intelligent classroom monitoring remains accessible on standard edge hardware without costly cloud infrastructure.
-      </p>
+        <!-- 3 Core Contributor Profile Cards -->
+        <div class="team-cards-grid">
+          <!-- Member 1: Adarsh Varghese Manu -->
+          <div class="team-contributor-card">
+            <div class="contributor-top-row">
+              <div class="contributor-monogram mono">AVM</div>
+              <div>
+                <h2 class="contributor-name">Adarsh Varghese Manu</h2>
+                <span class="contributor-role">Project Lead &bull; 3D Head-Pose Estimation</span>
+              </div>
+            </div>
+            <p class="contributor-bio">
+              Architected the real-time 3D Head-Pose Estimation module. Pioneered the Perspective-n-Point (<code class="mono" style="color: var(--signal-blue);">solvePnP</code>) algorithmic integration and Euler angle decomposition (Pitch, Yaw, Roll) using MediaPipe 3D face mesh coordinates to continuously monitor student classroom gaze orientation.
+            </p>
+            <div class="contributor-tags-row">
+              <span class="contributor-tag mono">Project Lead</span>
+              <span class="contributor-tag mono">3D solvePnP</span>
+              <span class="contributor-tag mono">Euler Decomposition</span>
+              <span class="contributor-tag mono">System Architecture</span>
+              <span class="contributor-tag mono">OpenCV</span>
+            </div>
+          </div>
+
+          <!-- Member 2: Archa Sekhar -->
+          <div class="team-contributor-card">
+            <div class="contributor-top-row">
+              <div class="contributor-monogram mono" style="color: var(--signal-amber);">AS</div>
+              <div>
+                <h2 class="contributor-name">Archa Sekhar</h2>
+                <span class="contributor-role">CV Engineer &bull; Yawn &amp; Fatigue Kinematics Lead</span>
+              </div>
+            </div>
+            <p class="contributor-bio">
+              Researched and implemented the Mouth Aspect Ratio (<code class="mono" style="color: var(--signal-amber);">MAR</code>) fatigue detection engine. Developed facial landmark extraction protocols for lips and oral contours, enabling non-invasive identification of student tiredness, yawning frequency, and fatigue onset in educational environments.
+            </p>
+            <div class="contributor-tags-row">
+              <span class="contributor-tag mono">Yawn Kinematics</span>
+              <span class="contributor-tag mono">Mouth Aspect Ratio</span>
+              <span class="contributor-tag mono">Facial Landmarks</span>
+              <span class="contributor-tag mono">Fatigue Vectors</span>
+              <span class="contributor-tag mono">MediaPipe</span>
+            </div>
+          </div>
+
+          <!-- Member 3: B Anand -->
+          <div class="team-contributor-card">
+            <div class="contributor-top-row">
+              <div class="contributor-monogram mono" style="color: var(--signal-green);">BA</div>
+              <div>
+                <h2 class="contributor-name">B Anand</h2>
+                <span class="contributor-role">CV Engineer &bull; Eye Closure &amp; EAR Lead</span>
+              </div>
+            </div>
+            <p class="contributor-bio">
+              Engineered the Eye Aspect Ratio (<code class="mono" style="color: var(--signal-green);">EAR</code>) drowsiness detection engine. Analyzed upper and lower eyelid coordinates to compute blink duration, eye closure velocities, and microsleep occurrences, establishing the core alertness metric utilized throughout the CAMS telemetry suite.
+            </p>
+            <div class="contributor-tags-row">
+              <span class="contributor-tag mono">Eye Aspect Ratio</span>
+              <span class="contributor-tag mono">Eyelid Kinematics</span>
+              <span class="contributor-tag mono">Microsleep Analysis</span>
+              <span class="contributor-tag mono">Web Telemetry</span>
+              <span class="contributor-tag mono">Real-Time CV</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Architectural Tribute Banner -->
+        <div class="team-tribute-banner">
+          <div class="tribute-title">Foundational Research Tribute</div>
+          <p class="tribute-text">
+            The v3.0 Architectural Studio of CAMS directly builds upon the core research breakthroughs established by Adarsh, Archa, and Anand. Their commitment to GPU-free, lightweight computer vision ensures that intelligent classroom monitoring remains accessible on standard edge educational hardware without costly cloud infrastructure.
+          </p>
+        </div>
+      </main>
     </div>
   </div>
 </body>

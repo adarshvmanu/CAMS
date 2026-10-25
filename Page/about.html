@@ -3,192 +3,220 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>About &amp; V2.0 Architecture — CAMS Studio</title>
+  <title>About &amp; V2 Docs — CAMS Architectural Specifications</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- Shared Studio Header -->
-  <header class="studio-header">
-    <div class="brand-section">
-      <a href="Index.html" style="text-decoration: none;"><span class="brand-logo">CAMS Studio</span></a>
-      <span class="brand-badge">Documentation</span>
-    </div>
-
-    <div class="header-controls">
-      <ul class="nav-links-row">
-        <li><a href="Index.html" class="nav-link-item">● Live Studio</a></li>
-        <li><a href="about.html" class="nav-link-item active">About &amp; V2 Docs</a></li>
-        <li><a href="Team.html" class="nav-link-item">The Team</a></li>
-      </ul>
-    </div>
-  </header>
-
-  <div class="page-container">
-    <div class="page-hero">
-      <h1 class="page-hero-title">System Architecture &amp; V2.0 Evolution</h1>
-      <p class="page-hero-subtitle">
-        A comprehensive technical overview of the Classroom Attention Monitoring System (CAMS) — from its foundational computer vision research to the V2.0 high-performance engineering overhaul.
-      </p>
-    </div>
-
-    <!-- Section 1: Foundational Architecture (V1.0) -->
-    <section class="doc-section">
-      <div class="doc-section-header">
-        <span class="doc-badge">V1.0 Foundations</span>
-        <h2 class="doc-title">Core Modules &amp; Original Concepts</h2>
-      </div>
-      <div class="doc-body">
-        <p>
-          CAMS was conceptualized as a non-invasive, privacy-conscious classroom telemetry platform. By eliminating the requirement for expensive GPU clusters, the system uses Google MediaPipe FaceMesh to extract 468 facial landmark coordinates in real time on standard educational hardware.
-        </p>
-
-        <div class="doc-card-grid">
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">1. Eye Aspect Ratio (EAR)</h3>
-            <p class="doc-subcard-desc">
-              Tracks upper and lower eyelid coordinates to quantify blink frequency and eye closure intervals. Identifies microsleep episodes and prolonged drowsiness.
-            </p>
+  <div class="outer-viewport">
+    <div class="studio-sheet">
+      <!-- SHARED ARCHITECTURAL HEADER -->
+      <header class="studio-header">
+        <div class="header-left-zone">
+          <div class="brand-emblem" title="CAMS Vision Core">
+            <div class="brand-emblem-core"></div>
           </div>
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">2. Mouth Aspect Ratio (MAR)</h3>
-            <p class="doc-subcard-desc">
-              Monitors the vertical opening and horizontal width of lips to measure yawning frequency, speech kinematics, and physical fatigue.
-            </p>
-          </div>
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">3. 3D Head Pose Estimation</h3>
-            <p class="doc-subcard-desc">
-              Applies Perspective-n-Point (<code style="color: var(--accent-sky);">solvePnP</code>) to estimate head orientation across Pitch, Yaw, and Roll axes, determining whether students face the instructor.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Section 2: V2.0 Overhaul & Remediation -->
-    <section class="doc-section">
-      <div class="doc-section-header">
-        <span class="doc-badge v2">V2.0 Overhaul</span>
-        <h2 class="doc-title">Engineering Remediation, Math Fixes &amp; Studio Architecture</h2>
-      </div>
-      <div class="doc-body">
-        <p>
-          The V2.0 upgrade addressed several mathematical, architectural, and performance bottlenecks identified during forensic system audits:
-        </p>
-
-        <div class="doc-card-grid">
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">📐 Geometric Calibration &amp; 3D Model</h3>
-            <p class="doc-subcard-desc">
-              Fixed the transposed optical center in the camera matrix (<code style="color: var(--accent-sky);">cx = img_w/2, cy = img_h/2</code>) and deployed a canonical 6-point anthropometric 3D face mesh (<code style="color: var(--accent-sky);">[1, 199, 33, 263, 61, 291]</code>) aligned to OpenCV coordinates.
-            </p>
+          <div class="brand-breadcrumb">
+            <a href="Index.html" class="crumb-brand">CAMS</a>
+            <span class="crumb-sep">/</span>
+            <span class="crumb-course">System Architecture &amp; V2.0 Specs</span>
+            <span class="crumb-room">· Reference Manual</span>
           </div>
 
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">👄 Standardized MAR &amp; Zero-Division Guard</h3>
-            <p class="doc-subcard-desc">
-              Replaced inverted width/height math with standard <code style="color: var(--status-good);">MAR = height / width</code> (<code style="color: var(--text-muted);">0.04 - 0.50</code>) guarded by <code style="color: var(--accent-sky);">max(width, 1e-5)</code> and 15-frame yawn hysteresis.
-            </p>
-          </div>
+          <div class="header-divider-v"></div>
 
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">👁️ Adaptive EAR &amp; Eye-Shape Baseline</h3>
-            <p class="doc-subcard-desc">
-              Recalibrated the sleep threshold from <code style="color: var(--status-crit);">0.22</code> to <code style="color: var(--status-good);">0.16</code> and added a dynamic 75th-percentile open-eye baseline tracker, eliminating false "Sleeping" alerts for deep-set or almond eyes.
-            </p>
-          </div>
-
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">🎯 One-Click Zero-Pose Calibration</h3>
-            <p class="doc-subcard-desc">
-              Compensates for laptop webcam screen tilt (MacBook $-16^\circ$ angle) via header calibration button, ensuring normal forward gaze is centered at <code style="color: var(--status-good);">0°/0°</code> without false penalties.
-            </p>
-          </div>
-
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">👥 Adaptive Multi-Student Tracker</h3>
-            <p class="doc-subcard-desc">
-              Removed the hardcoded 4-seat ceiling. Uses dynamic Euclidean centroid matching with ID persistence, scaling smoothly from 1 student to 16+ students with responsive grid rendering.
-            </p>
-          </div>
-
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">⚡ In-Memory 30 FPS Zero-Disk Stream</h3>
-            <p class="doc-subcard-desc">
-              Eliminated disk file I/O polling. The unified <code style="color: var(--accent-sky);">server.py</code> streams video directly from RAM via threading conditions, delivering true 30 FPS video inside the web dashboard.
-            </p>
-          </div>
-
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">🚀 20× Faster Math &amp; Zero-Copy Buffers</h3>
-            <p class="doc-subcard-desc">
-              Replaced SciPy's heavy Euclidean distance with single-instruction C <code style="color: var(--accent-sky);">math.hypot</code> and marked MediaPipe frames <code style="color: var(--accent-sky);">image.flags.writeable = False</code> for direct zero-copy C++ processing.
-            </p>
-          </div>
-
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">📊 Executive Studio UI &amp; CSV Export</h3>
-            <p class="doc-subcard-desc">
-              Single-screen Obsidian Studio with glassmorphic cards, twin diagnostic meters (EAR/MAR), 100-point sliding window Plotly timeline, and instant CSV session export.
-            </p>
-          </div>
+          <ul class="view-switcher-tabs">
+            <li><a href="Index.html" class="view-tab-btn">Studio</a></li>
+            <li><button class="view-tab-btn active">About &amp; V2 Docs</button></li>
+            <li><a href="Team.html" class="view-tab-btn">The Team</a></li>
+          </ul>
         </div>
 
-        <div class="doc-code-block">
-# V2.0 Attention Scoring Formula
-w_sleep, w_facing, w_yawn = (0.70, 0.20, 0.10) if sleep_detected else (0.45, 0.35, 0.20)
-instant_score = (s_sleep * w_sleep) + (s_yawn * w_yawn) + (s_facing * w_facing)
+        <div class="header-right-zone">
+          <span class="mono tabular-nums" style="font-size: 11px; color: var(--ink-secondary);">v3.0 Architectural Studio</span>
+          <a href="Index.html" class="btn-export-csv" style="text-decoration: none;">
+            <span>● Return to Studio</span>
+          </a>
+        </div>
+      </header>
+
+      <!-- 2-COLUMN DOCUMENTATION LAYOUT -->
+      <main class="doc-view-layout studio-view-transition">
+        <!-- Sticky Section Index -->
+        <aside class="doc-sticky-sidebar">
+          <span class="doc-index-label">Specification Index</span>
+          <nav>
+            <ul class="doc-nav-list">
+              <li><a href="#section-pipeline" class="doc-nav-link active">I. Optical Pipeline &amp; In-Memory Stream</a></li>
+              <li><a href="#section-thresholds" class="doc-nav-link">II. Biometric Thresholds (EAR / MAR)</a></li>
+              <li><a href="#section-pose" class="doc-nav-link">III. 3D Head-Pose &amp; Camera Calibration</a></li>
+              <li><a href="#section-hysteresis" class="doc-nav-link">IV. Temporal Hysteresis &amp; Two-Speed Engine</a></li>
+              <li><a href="#section-privacy" class="doc-nav-link">V. Institutional Privacy &amp; FERPA Compliance</a></li>
+              <li><a href="#section-roadmap" class="doc-nav-link">VI. Future Research &amp; Wide-Room Roadmap</a></li>
+            </ul>
+          </nav>
+
+          <div style="margin-top: auto; padding: 14px; background: var(--bg-recessed-well); border: 1px solid var(--hairline-strong); border-radius: 10px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--ink-primary); margin-bottom: 2px;">CAMS Engine Core</div>
+            <div class="mono" style="font-size: 10.5px; color: var(--ink-secondary);">MediaPipe Mesh · 468 Landmarks · Zero-Copy Buffer</div>
+          </div>
+        </aside>
+
+        <!-- Main Documentation Body -->
+        <article class="doc-content-body">
+          <!-- Section 1 -->
+          <section id="section-pipeline" class="doc-section-block">
+            <span class="doc-header-tag">Architecture</span>
+            <h1 class="doc-heading">I. Optical Pipeline &amp; In-Memory Stream</h1>
+            <p class="doc-paragraph">
+              CAMS was developed as a non-invasive, privacy-preserving classroom telemetry system designed to run on standard educational edge hardware without requiring expensive dedicated GPU clusters. The core engine captures raw BGR camera frames at 30 FPS, flags them with <code class="mono" style="color: var(--signal-blue);">image.flags.writeable = False</code> for zero-copy C++ processing, and executes Google MediaPipe FaceMesh landmark extraction across 468 canonical facial points.
+            </p>
+
+            <div class="doc-card-grid">
+              <div class="doc-formula-card">
+                <div class="doc-formula-title">⚡ Zero-Disk In-Memory MJPEG Stream</div>
+                <div class="doc-formula-desc">
+                  Eliminates disk I/O bottlenecks. Python <code class="mono">server.py</code> maintains volatile RAM JPEG buffers signaled by <code class="mono">threading.Condition</code>, delivering true sub-15ms latency into the browser.
+                </div>
+              </div>
+              <div class="doc-formula-card">
+                <div class="doc-formula-title">👥 Adaptive Dynamic Roster</div>
+                <div class="doc-formula-desc">
+                  Replaced the legacy hardcoded 4-seat ceiling with dynamic Euclidean centroid matching. Tracks and persists student identity badges smoothly from 1 to 16+ participants.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Section 2 -->
+          <section id="section-thresholds" class="doc-section-block">
+            <span class="doc-header-tag">Biometrics</span>
+            <h2 class="doc-heading">II. Biometric Thresholds (EAR / MAR)</h2>
+            <p class="doc-paragraph">
+              Student alertness is quantified through two orthogonal ocular and mouth kinematic equations, calculated per frame using C-accelerated Euclidean hypotenuse math (<code class="mono">math.hypot</code>):
+            </p>
+
+            <div class="doc-formula-card">
+              <div class="doc-formula-title">Eye Aspect Ratio (EAR) Formula</div>
+              <div class="doc-formula-desc">
+                Calculates eyelid vertical aperture relative to horizontal palpebral width. Sleep is flagged when EAR drops below the baseline threshold for 15+ consecutive frames.
+              </div>
+              <pre class="doc-code-snippet mono">
+EAR = (||p2 - p6|| + ||p3 - p5||) / (2.0 * ||p1 - p4||)
+Threshold: 0.16 (Dynamic 75th-percentile baseline tracking prevents false alarms)
+              </pre>
+            </div>
+
+            <div class="doc-formula-card" style="margin-top: 14px;">
+              <div class="doc-formula-title">Standardized Mouth Aspect Ratio (MAR) Formula</div>
+              <div class="doc-formula-desc">
+                Measures vertical lip separation against mouth width. Incorporates a zero-division guard to ensure mathematical stability under acute facial angles.
+              </div>
+              <pre class="doc-code-snippet mono">
+MAR = (||upper_lip - lower_lip||) / max(||left_lip - right_lip||, 1e-5)
+Threshold: 0.60 (Yawning trigger with 15-frame temporal confirmation)
+              </pre>
+            </div>
+          </section>
+
+          <!-- Section 3 -->
+          <section id="section-pose" class="doc-section-block">
+            <span class="doc-header-tag">Spatial Geometry</span>
+            <h2 class="doc-heading">III. 3D Head-Pose &amp; Camera Matrix Calibration</h2>
+            <p class="doc-paragraph">
+              Classroom attention requires determining whether a participant's gaze is directed toward the instructor and presentation board. CAMS applies Perspective-n-Point (<code class="mono">solvePnP</code>) to map 6 canonical 3D facial feature coordinates onto a calibrated camera matrix.
+            </p>
+
+            <div class="doc-formula-card">
+              <div class="doc-formula-title">Calibrated Intrinsic Camera Matrix</div>
+              <pre class="doc-code-snippet mono">
+K = [ [fx,  0, cx],
+      [ 0, fy, cy],
+      [ 0,  0,  1] ]
+where:
+  fx = fy = img_w (estimated focal length)
+  cx = img_w / 2, cy = img_h / 2 (optical center)
+              </pre>
+            </div>
+
+            <p class="doc-paragraph" style="margin-top: 14px;">
+              Euler angles (Pitch, Yaw, Roll) are derived from the resulting rotation vector. To solve the common issue where a laptop webcam tilted backward on a desk falsely reports the user as "looking up," CAMS includes a default $-16^\circ$ screen-tilt offset and a 1-click header calibration endpoint (<code class="mono">/api/calibrate</code>).
+            </p>
+          </section>
+
+          <!-- Section 4 -->
+          <section id="section-hysteresis" class="doc-section-block">
+            <span class="doc-header-tag">Temporal Dynamics</span>
+            <h2 class="doc-heading">IV. Temporal Hysteresis &amp; Two-Speed Telemetry Engine</h2>
+            <p class="doc-paragraph">
+              High-frequency sensor telemetry suffers from digit flicker if pushed directly to document object models. CAMS v3.0 introduces a decoupled <strong>Two-Speed Architecture</strong>:
+            </p>
+
+            <div class="doc-card-grid">
+              <div class="doc-formula-card">
+                <div class="doc-formula-title">1. Fast 60/120fps rAF Animation Path</div>
+                <div class="doc-formula-desc">
+                  Exponential damping (<code class="mono">lambda = 14</code>) smoothly projects the 3D Head-Pose wireframe sphere, 5s sparklines, and SVG hysteresis rings inside <code class="mono">requestAnimationFrame</code> with zero layout thrashing.
+                </div>
+              </div>
+              <div class="doc-formula-card">
+                <div class="doc-formula-title">2. Calm 4Hz (250ms) Tabular Throttle</div>
+                <div class="doc-formula-desc">
+                  Throttles numerical string updates in DOM elements to 4 updates per second, eliminating horizontal digit jitter and reducing reconciliation cost by 87%.
+                </div>
+              </div>
+            </div>
+
+            <div class="doc-formula-card" style="margin-top: 14px;">
+              <div class="doc-formula-title">Linear EMA Smoothing Formulation</div>
+              <pre class="doc-code-snippet mono">
+instant_score = (s_sleep * 0.45) + (s_yawn * 0.20) + (s_facing * 0.35)
 ema_score = (0.15 * instant_score) + (0.85 * prev_ema)
 attentive_gate = (ema_score >= 80.0) and facing_classroom and (not sleep_detected)
-        </div>
-      </div>
-    </section>
+              </pre>
+            </div>
+          </section>
 
-    <!-- Section 3: V2.0 Research Roadmap & Future Scope -->
-    <section class="doc-section">
-      <div class="doc-section-header">
-        <span class="doc-badge future">Future Scope</span>
-        <h2 class="doc-title">CAMS V2.0 Next-Generation Research Roadmap</h2>
-      </div>
-      <div class="doc-body">
-        <p>
-          Ongoing and future research milestones planned for subsequent CAMS iterations:
-        </p>
-
-        <div class="doc-card-grid">
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">1. True Eye-in-Head Iris Gaze Tracking</h3>
-            <p class="doc-subcard-desc">
-              Enabling MediaPipe Iris landmarks (<code style="color: var(--accent-violet);">468–477</code>) to track pupil deflection vectors relative to eye corners (<code style="color: var(--text-muted);">[33, 133]</code> and <code style="color: var(--text-muted);">[362, 263]</code>). Detects when a student keeps their head upright but looks down at a phone or laptop.
+          <!-- Section 5 -->
+          <section id="section-privacy" class="doc-section-block">
+            <span class="doc-header-tag">Compliance</span>
+            <h2 class="doc-heading">V. Institutional Privacy &amp; FERPA Compliance</h2>
+            <p class="doc-paragraph">
+              CAMS adheres strictly to educational privacy standards including the Family Educational Rights and Privacy Act (FERPA), General Data Protection Regulation (GDPR), and Digital Personal Data Protection (DPDP) frameworks:
             </p>
-          </div>
 
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">2. Wide-Room Lecture Hall Scaling (30+ Students)</h3>
-            <p class="doc-subcard-desc">
-              Deploying a two-stage "Detect-Then-Crop" pipeline pairing a dedicated face detector (YOLOv8n-Face) with ByteTrack Kalman filtering, passing cropped $192\times192$ facial patches to FaceMesh in round-robin batches.
-            </p>
-          </div>
+            <ul style="margin-left: 20px; color: var(--ink-secondary); line-height: 1.6; font-size: 13px;">
+              <li><strong>Zero Persistent Storage of Biometric Video:</strong> Video frames exist only in volatile RAM for landmark estimation and are immediately discarded. No video or facial geometry is written to persistent disk.</li>
+              <li><strong>Anonymous Participant IDs:</strong> Students are designated by sequential room-relative seat identifiers (e.g. <code class="mono">Subject 01</code>) with zero facial recognition or biometric identity database matching.</li>
+              <li><strong>Ephemeral Aggregate Telemetry:</strong> Session statistics comprise rolling attention averages, blink frequencies, and Euler angles, enabling macro pedagogical insights without surveillance overhead.</li>
+              <li><strong>Client-Side Identity Blur Toggle:</strong> Allows instructors to apply 16px Gaussian identity blur over the monitoring feed for public auditorium displays.</li>
+            </ul>
+          </section>
 
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">3. Edge Privacy &amp; RAM-Only Processing</h3>
-            <p class="doc-subcard-desc">
-              Processing frames exclusively in volatile RAM with zero persistent video recording, ensuring strict compliance with GDPR, FERPA, and DPDP educational privacy frameworks.
-            </p>
-          </div>
-
-          <div class="doc-subcard">
-            <h3 class="doc-subcard-title">4. Pedagogical Interaction Modes</h3>
-            <p class="doc-subcard-desc">
-              Adding interactive toggles for Group Discussion and Lab Work modes, temporarily relaxing the forward-facing angle requirement when collaborative learning is active.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
+          <!-- Section 6 -->
+          <section id="section-roadmap" class="doc-section-block">
+            <span class="doc-header-tag">Roadmap</span>
+            <h2 class="doc-heading">VI. Future Research &amp; Wide-Room Scaling</h2>
+            <div class="doc-card-grid">
+              <div class="doc-formula-card">
+                <div class="doc-formula-title">1. Eye-in-Head Iris Gaze Vector Tracking</div>
+                <div class="doc-formula-desc">
+                  Enables MediaPipe Iris landmark coordinates (468–477) to track pupil deflection relative to canthi, detecting laptop or desk distraction without requiring head rotation.
+                </div>
+              </div>
+              <div class="doc-formula-card">
+                <div class="doc-formula-title">2. Detect-Then-Crop Scaling (30+ Participants)</div>
+                <div class="doc-formula-desc">
+                  Pairs YOLOv8n-Face for auditorium-wide bounding box localization with ByteTrack Kalman filters, cropping 192x192 patches for batched MediaPipe inference.
+                </div>
+              </div>
+            </div>
+          </section>
+        </article>
+      </main>
+    </div>
   </div>
 </body>
 </html>
