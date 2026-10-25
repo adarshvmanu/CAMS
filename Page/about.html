@@ -35,7 +35,7 @@
         </div>
 
         <div class="header-right-zone">
-          <span class="mono tabular-nums" style="font-size: 11px; color: var(--ink-secondary);">v3.0 Architectural Studio</span>
+          <span class="mono tabular-nums" style="font-size: 11px; color: var(--ink-secondary);">v3.1 Architectural Studio</span>
           <a href="Index.html" class="btn-export-csv" style="text-decoration: none;">
             <span>● Return to Studio</span>
           </a>
@@ -259,6 +259,16 @@ attentive_gate = (ema_score >= 80.0) and facing_classroom and (not sleep_detecte
               <div class="doc-formula-title">📐 Phase 5: 3D Roll-Aware Pose Gizmo &amp; EMA Spline Curves (v3.0)</div>
               <div class="doc-formula-desc">
                 <strong>Enhancements:</strong> Upgraded the 3D Head-Pose canvas gizmo with full Roll-angle rotation for true 3-axis spatial visualization. Applied Exponential Moving Average (EMA) smoothing to Board Alignment curves in Chart.js to replace binary square waves with organic fluid splines.
+              </div>
+            </div>
+
+            <div class="doc-formula-card" style="margin-bottom: 14px;">
+              <div class="doc-formula-title">🔬 Phase 6: Asymmetric Kinematic Damper, 3D Gaze Vectoring &amp; Deep Insight Studio (v3.1)</div>
+              <div class="doc-formula-desc">
+                <strong>Kinematic Damper &amp; Velocity Derivatives:</strong> Upgraded the attention scoring engine with an asymmetric dual-alpha kinematic filter (&alpha;<sub>attack</sub> = 0.35 on distraction/yawn onset, &alpha;<sub>decay</sub> = 0.12 on calm recovery) and 1st-order attention velocity derivative calculation (<code class="mono">&Delta;EMA/&Delta;t</code>), completely eliminating eye-blink noise and twitch jitter.<br>
+                <strong>Interactive Telemetry Deep Studio &amp; Crop-to-Zoom:</strong> Integrated click-and-drag bounding box zoom on the master telemetry canvas with dynamic vertical auto-scaling, trackpad pinch/pan gesture navigation, and an interactive scrubber bar. Clicking any milestone anomaly pin (yawn &ge; 0.45 MAR, desk deflection &lt; -18&deg;) jumps directly to inspect that moment in a dedicated forensic studio modal featuring a 4-card analytical KPI matrix, high-resolution slice waveform, pedagogical diagnosis, and CSV/clipboard export.<br>
+                <strong>Optical HUD 3D Gaze Vector Ray:</strong> Dynamically projects the student's calibrated 3D head orientation vector directly onto the camera reticle overlay with targeting focal rings and state-aware color shifts (blue for lecture focus, amber for averted, red for fatigue).<br>
+                <strong>Unified Cross-Platform Controller:</strong> Single-file <code class="mono">cams.py</code> system controller with autonomous port conflict resolution, graceful SIGINT/SIGTERM/SIGKILL escalation, health probing, and automated browser dispatch across macOS, Windows, and Linux.
               </div>
             </div>
 

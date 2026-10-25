@@ -1171,10 +1171,14 @@ function initMasterChart() {
     const delta = Math.sign(e.deltaY);
     const curLen = chartInstance.data.labels ? chartInstance.data.labels.length : 0;
 
+    // Apple Trackpad pinch gesture support (e.ctrlKey === true during pinch)
+    const isPinch = Boolean(e.ctrlKey);
+    const stepMultiplier = isPinch ? Math.min(Math.max(Math.abs(e.deltaY) / 10, 0.4), 1.6) : 1.0;
+    const step = Math.max(isPinch ? 1 : 2, Math.round(curLen * 0.2 * stepMultiplier));
+
     if (delta < 0) {
-      // Zoom in (shrink window by 20%)
+      // Zoom in (shrink window by proportional step)
       if (curLen <= 5) return;
-      const step = Math.max(2, Math.floor(curLen * 0.2));
       let start = chartZoomState.isZoomed ? chartZoomState.startIndex : Math.max(0, masterTelemetryStream.labels.length - curLen);
       let end = chartZoomState.isZoomed ? chartZoomState.endIndex : masterTelemetryStream.labels.length - 1;
 
@@ -1182,9 +1186,8 @@ function initMasterChart() {
       end = Math.max(start + 4, end - Math.ceil(step / 2));
       applyChartZoom(start, end);
     } else {
-      // Zoom out (expand window by 20%)
+      // Zoom out (expand window by proportional step)
       if (!chartZoomState.isZoomed) return;
-      const step = Math.max(2, Math.floor(curLen * 0.2));
       let start = Math.max(0, chartZoomState.startIndex - Math.floor(step / 2));
       let end = Math.min(masterTelemetryStream.labels.length - 1, chartZoomState.endIndex + Math.ceil(step / 2));
 
@@ -1856,6 +1859,71 @@ function copySliceReport(stats) {
   } else {
     showToast('Interval Report copied!');
   }
+}
+
+function exportIncidentsToJson() {
+  const incidents = [];
+
+  // 1. Collect all pinned milestone anomalies
+  if (typeof anomalyPins !== 'undefined' && anomalyPins.length > 0) {
+    anomalyPins.forEach((pin, idx) => {
+      incidents.push({
+        id: `PIN-${idx + 1}`,
+        type: pin.type,
+        label: pin.label,
+        timestamp: pin.timestamp,
+        sampleIndex: pin.index
+      });
+    });
+  }
+
+  // 2. Collect any divergent / fatigue frame samples from the master telemetry stream
+  const frames = masterTelemetryStream.frames || [];
+  frames.forEach((f, idx) => {
+    if (!f) return;
+    const s = (f.students && f.students[0]) || null;
+    const isFatigue = (s && (s.mar >= 0.42 || s.status === 'Yawning' || s.status === 'Sleeping')) || (f.yawn_detected > 0 || f.sleep_detected > 0);
+    const isAverted = (s && (!s.facing_classroom || s.pitch < -18 || Math.abs(s.yaw) > 26)) || (f.facing_classroom === 0);
+
+    if (isFatigue || isAverted) {
+      incidents.push({
+        id: `FRAME-${idx + 1}`,
+        timestamp: masterTelemetryStream.labels[idx] || '--:--:--',
+        category: isFatigue ? 'Fatigue / Oral Kinematics' : 'Gaze Deflection / Desk Tilt',
+        focusScore: masterTelemetryStream.focus[idx],
+        ear: s ? s.ear : null,
+        mar: s ? s.mar : null,
+        pitch: s ? s.pitch : null,
+        yaw: s ? s.yaw : null,
+        status: s ? s.status : (isFatigue ? 'Fatigue' : 'Divergent')
+      });
+    }
+  });
+
+  const digest = {
+    system: "Classroom Attention Monitoring System (CAMS)",
+    version: "3.1-enterprise",
+    exportedAt: new Date().toISOString(),
+    session: {
+      course: (typeof sessionConfig !== 'undefined' && sessionConfig.className) ? sessionConfig.className : "Classroom Session",
+      room: (typeof sessionConfig !== 'undefined' && sessionConfig.room) ? sessionConfig.room : "Studio",
+      totalFramesLogged: masterTelemetryStream.labels.length,
+      incidentCount: incidents.length
+    },
+    incidents: incidents
+  };
+
+  const blob = new Blob([JSON.stringify(digest, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const courseStr = ((typeof sessionConfig !== 'undefined' && sessionConfig.className) ? sessionConfig.className : 'session').replace(/[^a-zA-Z0-9_-]/g, '_');
+  a.download = `cams_incidents_${courseStr}_${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${incidents.length} incident milestones (JSON)`, '⚠️');
 }
 
 function pushChartPoint(timestamp, focus, mean, facing, fatiguePct, frameData = null) {
@@ -2697,6 +2765,13 @@ function initActionHandlers() {
   if (btnModalCopySummary) {
     btnModalCopySummary.addEventListener('click', () => {
       copySliceReport(chartZoomState.sliceStats);
+    });
+  }
+
+  const btnModalExportIncidents = document.getElementById('btn-modal-export-incidents');
+  if (btnModalExportIncidents) {
+    btnModalExportIncidents.addEventListener('click', () => {
+      exportIncidentsToJson();
     });
   }
 

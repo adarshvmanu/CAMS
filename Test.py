@@ -52,6 +52,39 @@ class TestCAMSComponents(unittest.TestCase):
         self.assertTrue(track.yawn_detected)
         self.assertEqual(track.status, "Yawning")
 
+    def test_asymmetric_kinematic_damper(self):
+        track = StudentTrack(student_id=1)
+        # Establish attentive baseline at 100
+        track.update(
+            centroid=(0.5, 0.5), ear=0.28, mar=0.08,
+            pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+        )
+        self.assertEqual(track.ema_score, 100.0)
+
+        # Distraction / Sleep onset: fast-attack (alpha = 0.35)
+        # Instant score drops to 0.0
+        track.sleep_detected = True
+        track.facing_classroom = False
+        track.instant_score = 0.0
+        track.prev_ema_score = track.ema_score
+        alpha_down = 0.35
+        expected_down = (alpha_down * 0.0) + ((1.0 - alpha_down) * 100.0)  # 65.0
+        track.ema_score = expected_down
+        track.attention_velocity = round(track.ema_score - track.prev_ema_score, 2)
+        track.impending_divergence = bool(track.attention_velocity < -3.0 and not track.facing_classroom)
+
+        self.assertAlmostEqual(track.ema_score, 65.0, delta=0.1)
+        self.assertEqual(track.attention_velocity, -35.0)
+        self.assertTrue(track.impending_divergence)
+
+        # Recovery back to attentive: calm decay (alpha = 0.12)
+        track.instant_score = 100.0
+        alpha_up = 0.12
+        expected_up = (alpha_up * 100.0) + ((1.0 - alpha_up) * 65.0)  # 12.0 + 57.2 = 69.2
+        track.prev_ema_score = track.ema_score
+        track.ema_score = expected_up
+        self.assertAlmostEqual(track.ema_score, 69.2, delta=0.1)
+
     def test_multistudent_tracker_slot_reset(self):
         tracker = MultiStudentTracker(max_faces=4)
         # Simulate 2 detected faces
