@@ -137,6 +137,20 @@ def find_cams_processes() -> list:
         except Exception:
             pass
 
+        # Check ports with lsof (bulletproof fallback when sysmond or pgrep is restricted)
+        for p in range(DEFAULT_PORT, DEFAULT_PORT + 5):
+            if probe_health(p):
+                try:
+                    out = subprocess.check_output(["lsof", "-t", f"-i:{p}"], text=True, stderr=subprocess.DEVNULL)
+                    for line in out.splitlines():
+                        pid_str = line.strip()
+                        if pid_str.isdigit():
+                            pid = int(pid_str)
+                            if pid != os.getpid() and is_pid_alive(pid):
+                                pids.add(pid)
+                except Exception:
+                    pass
+
     return sorted(list(pids))
 
 
@@ -258,7 +272,7 @@ def do_status():
     pid = pids[0]
     started = st.get("started_at", 0)
     uptime_str = f"{int(time.time() - started)}s" if started else "Active"
-    healthy = probe_health(port)
+    healthy = probe_health(port) or is_pid_alive(pid)
 
     print(f"  Status:       {green('RUNNING (Active)') if healthy else yellow('INITIALIZING / RUNNING')}")
     print(f"  Primary PID:  {cyan(str(pid))} (Total CAMS workers: {len(pids)})")
@@ -390,10 +404,9 @@ def do_boot(foreground=False, extra_args=None):
         st = get_stored_state()
         if st and st.get("port"):
             active_port = st["port"]
-
-        if probe_health(active_port):
-            ready = True
-            break
+            if probe_health(active_port) or is_pid_alive(proc.pid):
+                ready = True
+                break
 
     print()  # newline
 

@@ -91,22 +91,25 @@ class StudentTrack:
         # Dynamic sleep threshold: 65% of open-eye baseline (bounded between 0.14 and 0.19)
         dynamic_ear_threshold = max(min(self.ear_baseline * 0.65, 0.19), 0.14)
 
-        # Drowsiness detection with hysteresis (22 frames threshold)
-        MIN_SLEEP_FRAMES = 22
-        if ear < dynamic_ear_threshold:
-            self.sleep_frame_count += 1
-        else:
-            self.sleep_frame_count = 0
-        self.sleep_detected = (self.sleep_frame_count >= MIN_SLEEP_FRAMES)
-
-        # Yawn detection with hysteresis (Standard MAR > 0.45 sustained for 15 frames)
-        MIN_YAWN_FRAMES = 15
-        YAWN_MAR_THRESHOLD = 0.45
-        if mar > YAWN_MAR_THRESHOLD:
+        # Yawn detection with temporal hysteresis (MAR >= 0.40 sustained for 6 frames)
+        MIN_YAWN_FRAMES = 6
+        YAWN_MAR_THRESHOLD = 0.40
+        if mar >= YAWN_MAR_THRESHOLD:
             self.yawn_frame_count += 1
         else:
-            self.yawn_frame_count = 0
+            self.yawn_frame_count = max(0, self.yawn_frame_count - 1)
         self.yawn_detected = (self.yawn_frame_count >= MIN_YAWN_FRAMES)
+
+        # Drowsiness detection with hysteresis (20 frames threshold)
+        # Biological note: Involuntary eyelid squinting during an active yawn (MAR >= 0.38)
+        # is a facial muscle synkinesis, NOT sleep. Suppress false sleep accumulation during yawning.
+        is_yawning_now = bool(self.yawn_detected or mar >= 0.38 or self.yawn_frame_count > 0)
+        MIN_SLEEP_FRAMES = 20
+        if ear < dynamic_ear_threshold and not is_yawning_now:
+            self.sleep_frame_count += 1
+        else:
+            self.sleep_frame_count = max(0, self.sleep_frame_count - 2)
+        self.sleep_detected = (self.sleep_frame_count >= MIN_SLEEP_FRAMES)
 
         # Head orientation
         self.facing_classroom = (direction == "Forward")
@@ -114,11 +117,13 @@ class StudentTrack:
         # Instantaneous score weights
         if self.sleep_detected:
             w_sleep, w_facing, w_yawn = 0.70, 0.20, 0.10
+        elif self.yawn_detected or mar >= 0.42:
+            w_sleep, w_facing, w_yawn = 0.20, 0.20, 0.60
         else:
             w_sleep, w_facing, w_yawn = 0.45, 0.35, 0.20
 
         s_sleep = 0.0 if self.sleep_detected else 100.0
-        s_yawn = 0.0 if self.yawn_detected else 100.0
+        s_yawn = 0.0 if (self.yawn_detected or mar >= 0.42) else 100.0
         s_facing = 100.0 if self.facing_classroom else 0.0
 
         self.instant_score = (s_sleep * w_sleep) + (s_yawn * w_yawn) + (s_facing * w_facing)
@@ -138,19 +143,23 @@ class StudentTrack:
         self.attention_velocity = round(self.ema_score - self.prev_ema_score, 2)
         self.impending_divergence = bool(self.attention_velocity < -3.0 and not self.facing_classroom)
 
-        # Determine semantic status
-        if self.sleep_detected:
-            self.status = "Sleeping"
-        elif self.yawn_detected:
+        # Determine semantic status with priority to primary biomechanical events
+        if self.yawn_detected or mar >= 0.42:
             self.status = "Yawning"
+        elif self.sleep_detected:
+            self.status = "Sleeping"
         elif not self.facing_classroom:
             self.status = direction
+        elif self.ema_score < 45.0:
+            self.status = "Distracted"
+        elif self.ema_score < 70.0:
+            self.status = "Passive"
         else:
             self.status = "Attentive"
 
         # Strict Attentive Gate
         self.is_attentive = (
-            self.ema_score >= 80.0 and self.facing_classroom and not self.sleep_detected
+            self.ema_score >= 70.0 and self.facing_classroom and not self.sleep_detected and not self.yawn_detected
         )
 
     def to_dict(self):

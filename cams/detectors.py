@@ -89,15 +89,15 @@ def estimate_head_pose(face_landmarks, img_w, img_h, pitch_offset=0.0, yaw_offse
     cal_pitch = raw_pitch - pitch_offset
     cal_yaw = raw_yaw - yaw_offset
 
-    if cal_yaw < -26.0:
-        direction = "Looking Left"
-    elif cal_yaw > 26.0:
-        direction = "Looking Right"
-    elif cal_pitch < -26.0:
-        direction = "Looking Up"
-    elif cal_pitch > 26.0:
-        direction = "Looking Down"
-    else:
+    # Determine dominant head orientation based on maximal angular deviation
+    dev_yaw = abs(cal_yaw)
+    dev_pitch = abs(cal_pitch)
+
+    if max(dev_yaw, dev_pitch) < 22.0:
         direction = "Forward"
+    elif dev_pitch >= dev_yaw:
+        direction = "Looking Down" if cal_pitch > 0 else "Looking Up"
+    else:
+        direction = "Looking Right" if cal_yaw > 0 else "Looking Left"
 
     return cal_pitch, cal_yaw, raw_roll, direction, rot_vec, trans_vec, cam_matrix, dist_matrix

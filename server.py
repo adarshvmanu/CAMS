@@ -112,21 +112,30 @@ def vision_pipeline_thread(video_source=0):
     global latest_jpeg, latest_telemetry
 
     print(f"[CAMS Vision Engine] Starting in-memory capture on source: {video_source}")
-    cap = cv.VideoCapture(video_source)
-    if not cap.isOpened() and isinstance(video_source, int):
-        cap = cv.VideoCapture(0)
-
-    if not cap.isOpened():
-        print("[CAMS Vision Engine] Warning: Unable to open webcam.")
-        return
-
+    cap = None
     last_broadcast_time = 0.0
 
     try:
         while is_running:
+            if cap is None or not cap.isOpened():
+                cap = cv.VideoCapture(video_source)
+                if not cap.isOpened() and isinstance(video_source, int):
+                    cap = cv.VideoCapture(0)
+                if not cap.isOpened():
+                    time.sleep(1.0)
+                    continue
+                try:
+                    cap.set(cv.CAP_PROP_FRAME_WIDTH, 640)
+                    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 360)
+                    cap.set(cv.CAP_PROP_FPS, 60)
+                    cap.set(cv.CAP_PROP_BUFFERSIZE, 1)
+                except Exception:
+                    pass
+
             success, image = cap.read()
             if not success:
-                time.sleep(0.03)
+                time.sleep(0.02)
+                continue
                 continue
 
             # Sync calibration & capacity
@@ -145,8 +154,8 @@ def vision_pipeline_thread(video_source=0):
                 need_stream = (active_video_clients > 0)
 
             if need_stream or latest_jpeg is None:
-                feed_img = cv.resize(image, (640, 360)) if (image.shape[1] > 640) else image
-                ret, buf = cv.imencode('.jpg', feed_img, [cv.IMWRITE_JPEG_QUALITY, 80])
+                feed_img = image if (image.shape[1] <= 640) else cv.resize(image, (640, 360), interpolation=cv.INTER_AREA)
+                ret, buf = cv.imencode('.jpg', feed_img, [cv.IMWRITE_JPEG_QUALITY, 75])
                 if ret:
                     with frame_condition:
                         latest_jpeg = buf.tobytes()
@@ -277,7 +286,7 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
             try:
                 while True:
                     with frame_condition:
-                        frame_condition.wait(timeout=0.04)
+                        frame_condition.wait(timeout=0.016)
                         jpeg_bytes = latest_jpeg
 
                     if jpeg_bytes:

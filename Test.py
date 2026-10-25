@@ -85,6 +85,31 @@ class TestCAMSComponents(unittest.TestCase):
         track.ema_score = expected_up
         self.assertAlmostEqual(track.ema_score, 69.2, delta=0.1)
 
+    def test_yawn_with_eye_squint_suppresses_false_sleep(self):
+        track = StudentTrack(student_id=1)
+        # Simulate active yawn (MAR 0.51) where eyes reflexively squint (EAR 0.15)
+        for _ in range(10):
+            track.update(
+                centroid=(0.5, 0.5), ear=0.15, mar=0.51,
+                pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+            )
+        # Should be classified as Yawning, NOT Sleeping
+        self.assertTrue(track.yawn_detected)
+        self.assertFalse(track.sleep_detected)
+        self.assertEqual(track.status, "Yawning")
+
+    def test_status_tiering_prevents_false_attentive(self):
+        track = StudentTrack(student_id=1)
+        # Student facing forward but heavily distracted (EMA drops to 13.6)
+        track.ema_score = 13.6
+        track.facing_classroom = True
+        track.update(
+            centroid=(0.5, 0.5), ear=0.28, mar=0.08,
+            pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+        )
+        self.assertFalse(track.is_attentive)
+        self.assertEqual(track.status, "Distracted")
+
     def test_multistudent_tracker_slot_reset(self):
         tracker = MultiStudentTracker(max_faces=4)
         # Simulate 2 detected faces

@@ -38,7 +38,7 @@ def render_student_overlay(image, track, face_landmarks, rot_vec, trans_vec, cam
     # Determine status color
     if track.sleep_detected:
         color = (94, 63, 244)   # Rose / Critical: #F43F5E (BGR: 94, 63, 244)
-    elif track.yawn_detected or not track.facing_classroom or track.ema_score < 80.0:
+    elif track.yawn_detected or track.mar >= 0.40 or not track.facing_classroom or track.ema_score < 70.0:
         color = (11, 158, 245)  # Amber / Warning: #F59E0B (BGR: 11, 158, 245)
     else:
         color = (129, 185, 16)  # Emerald / Good: #10B981 (BGR: 129, 185, 16)

@@ -409,7 +409,7 @@ function renderVideoReticleCanvas() {
   ctx.save();
   ctx.globalAlpha = Math.min(1.0, Math.max(0.0, lerpedReticle.opacity));
 
-  const isAlert = primary.mar > 0.60 || primary.ear < 0.20;
+  const isAlert = primary.mar >= 0.40 || primary.status === 'Yawning' || primary.ear < 0.20 || primary.status === 'Sleeping';
   const isWarn = primary.status !== 'Attentive';
   const bracketColor = isAlert ? '#FF3B30' : (isWarn ? '#FF9F0A' : 'rgba(255, 255, 255, 0.95)');
 
@@ -489,10 +489,10 @@ function renderVideoReticleCanvas() {
 
   // 4. Floating Frosted Pill Above Face (Apple visionOS / Linear style)
   let statusTag = primary.status || 'Attentive';
-  if (primary.mar > 0.60) {
-    statusTag = `Yawn Hold ${(engine.gateHoldMs / 1000).toFixed(1)}s`;
-  } else if (primary.ear < 0.20) {
-    statusTag = `Drowsy Hold ${(engine.gateHoldMs / 1000).toFixed(1)}s`;
+  if (primary.status === 'Yawning' || primary.mar >= 0.40) {
+    statusTag = engine.gateHoldMs > 150 ? `Yawn Hold ${(engine.gateHoldMs / 1000).toFixed(1)}s` : 'Yawning';
+  } else if (primary.status === 'Sleeping' || primary.ear < 0.20) {
+    statusTag = engine.gateHoldMs > 150 ? `Drowsy Hold ${(engine.gateHoldMs / 1000).toFixed(1)}s` : 'Drowsy';
   }
   const scoreVal = Number(primary.score || 82).toFixed(0);
   const pillText = `0${primary.id} · ${scoreVal}% · ${statusTag}`;
@@ -690,9 +690,9 @@ class TwoSpeedTelemetryEngine {
     // Hysteresis Gate Hold Timer (0ms -> 2000ms)
     const isGateActive =
       this.target.students.length > 0 &&
-      (this.target.mar > 0.60 ||
+      (this.target.mar >= 0.40 ||
        this.target.ear < 0.20 ||
-       (this.target.pitch < -15 && !deskExerciseMode));
+       ((this.target.pitch > 18 || this.target.pitch < -22) && !deskExerciseMode));
 
     if (isGateActive) {
       this.gateHoldMs = Math.min(2000, this.gateHoldMs + dt * 1000);
@@ -1486,8 +1486,20 @@ function calculateSliceStats(labels, focus, mean, facing, fatigue, frames, start
 
   frames.forEach(frame => {
     if (!frame) return;
-    if (frame.sleep) sleepCount++;
-    if (frame.yawn) yawnCount++;
+    const isYawn = Boolean(
+      frame.yawn ||
+      (frame.yawn_detected && frame.yawn_detected > 0) ||
+      (frame.students && frame.students.some(s => s.mar >= 0.40 || s.status === 'Yawning'))
+    );
+    if (isYawn) yawnCount++;
+
+    const isSleep = Boolean(
+      frame.sleep ||
+      (frame.sleep_detected && frame.sleep_detected > 0) ||
+      (frame.students && frame.students.some(s => s.ear < 0.20 || s.status === 'Sleeping'))
+    );
+    if (isSleep) sleepCount++;
+
     if (frame.students && Array.isArray(frame.students)) {
       frame.students.forEach(s => {
         if (typeof s.pitch === 'number') pitchList.push(s.pitch);
@@ -1579,7 +1591,7 @@ function openDeepInsightModal(customSlice) {
 
   if (kpiFatigue) kpiFatigue.textContent = `${stats.maxMar.toFixed(2)} MAR`;
   if (kpiFatigueTag) {
-    if (stats.maxMar >= 0.60 || stats.yawnCount > 0) {
+    if (stats.maxMar >= 0.40 || stats.yawnCount > 0) {
       kpiFatigueTag.textContent = 'Yawn Alert';
       kpiFatigueTag.className = 'kpi-tag-status alert';
     } else if (stats.minEar < 0.20 || stats.sleepCount > 0) {
@@ -1710,7 +1722,7 @@ function openDeepInsightModal(customSlice) {
   const diagText = document.getElementById('modal-diagnosis-text');
   if (diagText) {
     let diagnosis = '';
-    if (stats.maxMar >= 0.60 || stats.yawnCount > 0) {
+    if (stats.maxMar >= 0.40 || stats.yawnCount > 0) {
       diagnosis = `Fatigue signature identified during this interval. Mouth aspect ratio peaked at ${stats.maxMar.toFixed(2)} with ocular narrowing (EAR ${stats.minEar.toFixed(2)}). Engagement dipped to ${stats.minFocus.toFixed(0)}%. Recommended pedagogical action: introduce an active problem-solving prompt or direct audience inquiry.`;
     } else if (stats.minFocus < 60 && stats.avgPitch < -12) {
       diagnosis = `Transient attention dip to ${stats.minFocus.toFixed(0)}% was accompanied by downward head pitch deflection (mean ${stats.avgPitch.toFixed(1)}°). Oral kinematics remained baseline (MAR ${stats.maxMar.toFixed(2)}). This kinetic signature is consistent with desk problem solving, notebook writing, or slide copy rather than mental distraction.`;
@@ -1748,13 +1760,20 @@ function openDeepInsightModal(customSlice) {
       const yaw = typeof student.yaw === 'number' ? student.yaw.toFixed(1) : (stats.avgYaw.toFixed(1));
       const ear = typeof student.ear === 'number' ? student.ear.toFixed(2) : (stats.minEar.toFixed(2));
       const mar = typeof student.mar === 'number' ? student.mar.toFixed(2) : ((fat / 100 * 0.80).toFixed(2));
-      const status = student.status || (f >= 70 ? 'Attentive' : (mar >= 0.60 ? 'Yawning' : (ear < 0.20 ? 'Sleeping' : 'Distracted')));
+      let status = student.status;
+      if (!status || status === 'Attentive') {
+        if (Number(mar) >= 0.40) status = 'Yawning';
+        else if (Number(ear) < 0.20) status = 'Sleeping';
+        else if (f < 45) status = 'Distracted';
+        else if (f < 70) status = 'Passive';
+        else status = 'Attentive';
+      }
 
       // Filter matching
       if (filterMode === 'divergent') {
-        if (status === 'Attentive' && facing >= 80) return;
+        if (status === 'Attentive' && facing >= 75) return;
       } else if (filterMode === 'fatigue') {
-        if (Number(mar) < 0.50 && Number(ear) >= 0.22 && status !== 'Yawning' && status !== 'Sleeping') return;
+        if (Number(mar) < 0.40 && Number(ear) >= 0.20 && status !== 'Yawning' && status !== 'Sleeping') return;
       }
 
       visibleCount++;
@@ -2021,39 +2040,57 @@ function synthesizeLecturePulse({ focusMean, focusDelta, facingPct, primaryStude
     };
   }
 
-  const { id, mar = 0, ear = 0.28, pitch = 0, yaw = 0 } = primaryStudent;
+  const { id, mar = 0, ear = 0.28, pitch = 0, yaw = 0, status = 'Attentive', score = 100 } = primaryStudent;
 
-  // 1. Fatigue / Yawn Alert
-  if (mar >= 0.60 || ear < 0.20) {
+  // 1. Fatigue & Yawn Kinematics (Primary check: distinguish oral dilation from sleep)
+  if (status === 'Yawning' || mar >= 0.40) {
     return {
       severity: 'alert',
-      headline: `Fatigue signature detected on Subject 0${id} (${mar >= 0.60 ? `MAR ${mar.toFixed(2)} yawn` : `EAR ${ear.toFixed(2)} closure`}).`,
-      detail: `Coincides with ${pitch.toFixed(1)}° head pitch (${focusDelta >= 0 ? '+' : ''}${focusDelta.toFixed(1)}% vs mean). Consider an interactive check-in.`
+      headline: `Fatigue signature: Subject 0${id} yawn detected (MAR ${mar.toFixed(2)}).`,
+      detail: `Oral dilation confirms fatigue onset. Head orientation at Pitch ${pitch >= 0 ? '+' : ''}${pitch.toFixed(1)}°, Yaw ${yaw >= 0 ? '+' : ''}${yaw.toFixed(1)}°.`
     };
   }
 
-  // 2. Desk Note-Taking vs. Distraction
-  const isLookingDown = (pitch < -14 || pitch > 22);
-  if (isLookingDown && mar < 0.45 && ear >= 0.20) {
+  // 2. Sleep / Prolonged Eye Closure (Only when not yawning)
+  if (status === 'Sleeping' || ear < 0.18) {
     return {
-      severity: 'warn',
+      severity: 'alert',
+      headline: `Ocular closure alert: Subject 0${id} drowsiness detected (EAR ${ear.toFixed(2)}).`,
+      detail: `Eyelid closure exceeds individual baseline threshold for >2.0s hold.`
+    };
+  }
+
+  // 3. Desk Note-Taking vs. Downward Distraction (pitch > 16.0)
+  const isLookingDown = (status === 'Looking Down' || pitch > 16.0);
+  if (isLookingDown && mar < 0.38 && ear >= 0.20) {
+    return {
+      severity: isDeskMode ? 'stable' : 'warn',
       headline: isDeskMode
         ? `Desk Exercise Mode active — Subject 0${id} downward gaze (${pitch.toFixed(1)}°) classified as on-task.`
         : `Subject 0${id} shifted to downward pitch (${pitch.toFixed(1)}°) with normal ocular/mouth vectors.`,
-      detail: `Pattern matches desk note-taking rather than drowsiness (EAR ${ear.toFixed(2)}, MAR ${mar.toFixed(2)}).`
+      detail: `Pattern matches desk note-taking or screen focus rather than drowsiness (EAR ${ear.toFixed(2)}, MAR ${mar.toFixed(2)}).`
     };
   }
 
-  // 3. Lateral Gaze Drift
-  if (Math.abs(yaw) > 22) {
+  // 4. Lateral Gaze Drift
+  if (Math.abs(yaw) > 22.0) {
     return {
       severity: 'warn',
       headline: `Lateral gaze drift observed (${yaw > 0 ? '+' : ''}${yaw.toFixed(1)}° yaw) outside primary board cone.`,
-      detail: `Board alignment dipped to ${facingPct.toFixed(0)}%, though ocular alertness remains normal (EAR ${ear.toFixed(2)}).`
+      detail: `Subject turned ${yaw > 0 ? 'right' : 'left'} away from presentation axis. Ocular alertness: EAR ${ear.toFixed(2)}.`
     };
   }
 
-  // 4. Default High-Engagement State
+  // 5. Inattentive / Distracted
+  if (score < 50 || status === 'Distracted') {
+    return {
+      severity: 'warn',
+      headline: `Subject 0${id} attention divergence (Score: ${Number(score).toFixed(0)}%).`,
+      detail: `Biometric kinematics indicate divided classroom focus. Trajectory dipping.`
+    };
+  }
+
+  // 6. Default High-Engagement State
   const alignmentText = facingPct > 35 ? `${facingPct.toFixed(0)}% board gaze alignment` : `stable desk focus`;
   return {
     severity: 'stable',
@@ -2199,11 +2236,11 @@ function runTabularThrottle() {
     if (!hasStudents) {
       fatigueHero.textContent = '0.00';
       fatigueHero.style.color = 'var(--ink-primary)';
+    } else if (cur.mar >= 0.40) {
+      fatigueHero.textContent = `${cur.mar.toFixed(2)} MAR`;
+      fatigueHero.style.color = 'var(--signal-red)';
     } else if (cur.ear < 0.20) {
       fatigueHero.textContent = `${cur.ear.toFixed(2)} EAR`;
-      fatigueHero.style.color = 'var(--signal-red)';
-    } else if (cur.mar > 0.60) {
-      fatigueHero.textContent = `${cur.mar.toFixed(2)} MAR`;
       fatigueHero.style.color = 'var(--signal-red)';
     } else {
       fatigueHero.textContent = `${cur.mar.toFixed(2)} MAR`;
@@ -2238,16 +2275,16 @@ function runTabularThrottle() {
   if (metaYawn) {
     if (!hasStudents) {
       metaYawn.textContent = 'Awaiting subjects';
+    } else if (cur.mar >= 0.40) {
+      metaYawn.textContent = `Yawn alert (MAR ${cur.mar.toFixed(2)} ≥ 0.40)`;
     } else if (cur.ear < 0.20) {
       metaYawn.textContent = 'Ocular closure alert (Drowsy)';
-    } else if (cur.mar > 0.60) {
-      metaYawn.textContent = 'MAR > 0.60 yawn trigger';
     } else {
       metaYawn.textContent = 'Normal closure rate (Attentive)';
     }
   }
   if (yawnDot) {
-    yawnDot.className = `dot-indicator ${cur.mar > 0.60 || cur.ear < 0.20 ? 'red' : 'green'}`;
+    yawnDot.className = `dot-indicator ${cur.mar >= 0.40 || cur.ear < 0.20 ? 'red' : 'green'}`;
   }
   if (metaHysteresis) {
     const gatePct = Math.round((engine.gateHoldMs / 2000) * 100);
@@ -2357,27 +2394,33 @@ function renderBiometricLedgerTable(students) {
     const pitchVal = Number(student.pitch || 0);
     const position = student.position || 'Center';
 
-    const isEarAlert = earVal < 0.20;
-    const isMarAlert = marVal > 0.60;
+    const isEarAlert = earVal < 0.20 || student.status === 'Sleeping';
+    const isMarAlert = marVal >= 0.40 || student.status === 'Yawning';
 
-    let postureTitle = 'Attentive';
+    let postureTitle = student.status || 'Attentive';
     let postureSub = 'Within normal cone';
-    if (isMarAlert) {
+    if (student.status === 'Yawning' || isMarAlert) {
       postureTitle = 'Yawning';
-      postureSub = `MAR ${marVal.toFixed(2)} > 0.60 trigger`;
-    } else if (isEarAlert) {
+      postureSub = `MAR ${marVal.toFixed(2)} ≥ 0.40 trigger`;
+    } else if (student.status === 'Sleeping' || isEarAlert) {
       postureTitle = 'Drowsy';
       postureSub = `EAR ${earVal.toFixed(2)} < 0.20 threshold`;
-    } else if (pitchVal < -12) {
+    } else if (student.direction === 'Looking Down' || pitchVal > 16) {
       postureTitle = deskExerciseMode ? 'Desk Work' : 'Looking Down';
       postureSub = `${pitchVal.toFixed(1)}° pitch`;
-    } else if (Math.abs(yawVal) > 20) {
+    } else if (student.direction === 'Looking Left' || student.direction === 'Looking Right' || Math.abs(yawVal) > 20) {
       postureTitle = yawVal > 0 ? 'Looking Right' : 'Looking Left';
       postureSub = `${yawVal.toFixed(1)}° yaw`;
+    } else if (focusVal < 45) {
+      postureTitle = 'Distracted';
+      postureSub = 'Low attention score';
+    } else if (focusVal < 70) {
+      postureTitle = 'Passive';
+      postureSub = 'Mild engagement';
     }
 
     const earScale = Math.min(1.0, Math.max(0.0, earVal / 0.40)).toFixed(3);
-    const marScale = Math.min(1.0, Math.max(0.0, marVal / 1.00)).toFixed(3);
+    const marScale = Math.min(1.0, Math.max(0.0, marVal / 0.80)).toFixed(3);
     const focusScale = (Math.min(100, Math.max(0, focusVal)) / 100).toFixed(3);
 
     rowsHtml += `
@@ -2434,17 +2477,17 @@ function renderBiometricLedgerTable(students) {
           </div>
         </td>
 
-        <!-- Col 5: MOUTH RATIO (MAR <= 0.60) -->
+        <!-- Col 5: MOUTH RATIO (MAR <= 0.40) -->
         <td>
           <div class="meter-cell-group">
             <div class="meter-cell-readout">
               <span class="dot-indicator ${isMarAlert ? 'red' : 'green'}"></span>
               <span class="mono tabular-nums font-semibold" style="font-size: 13.5px; color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-primary)'}">${marVal.toFixed(2)}</span>
-              <span style="font-size: 10.5px; color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-secondary)'}">${isMarAlert ? '> 0.60 Max' : 'Normal'}</span>
+              <span style="font-size: 10.5px; color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-secondary)'}">${isMarAlert ? '≥ 0.40 Yawn' : 'Normal'}</span>
             </div>
             <div class="ratio-track-with-tick">
               <div class="ratio-track-fill" style="transform: scaleX(${marScale}); background-color: ${isMarAlert ? 'var(--signal-red)' : 'var(--ink-primary)'};"></div>
-              <div class="ratio-threshold-tick mar-tick" title="0.60 Yawn Threshold"></div>
+              <div class="ratio-threshold-tick mar-tick" title="0.40 Yawn Threshold"></div>
             </div>
           </div>
         </td>
@@ -2844,27 +2887,53 @@ function handleTelemetryPayload(payload) {
   const fatiguePct = Math.min(100, (peakMar / 0.80) * 100);
   pushChartPoint(timestamp, overall, engine.sessionMean, Math.round(engine.current.facing), fatiguePct, frameData);
 
-  // State Transition Event Logs with 3.5s anti-jitter debounce & rich details
+  // Live State Transition & Presence Event Logs (with deduplication & arrival/exit logging)
   const nowMs = Date.now();
+  const currentSubjectIds = new Set(students.map(s => s.id));
+
   students.forEach(s => {
-    if (prevStudentStates[s.id] && prevStudentStates[s.id] !== s.status) {
+    const prev = prevStudentStates[s.id];
+    if (prev === undefined) {
+      prevStudentStates[s.id] = s.status;
+      lastStateChangeTimes[s.id] = nowMs;
+      logIncident(`Subject 0${s.id} locked in optical field`, 'blue', `Initial status: ${s.status} (Pitch ${s.pitch >= 0 ? '+' : ''}${Number(s.pitch).toFixed(0)}°)`);
+    } else if (prev !== s.status && prev !== 'Left') {
       const lastLogged = lastStateChangeTimes[s.id] || 0;
-      if (nowMs - lastLogged > 3500) {
+      if (nowMs - lastLogged > 2000) {
         lastStateChangeTimes[s.id] = nowMs;
-        const nodeColor = s.status === 'Attentive' ? 'green' : (s.status === 'Sleeping' ? 'red' : 'amber');
+        prevStudentStates[s.id] = s.status;
+        const nodeColor = s.status === 'Attentive' ? 'green' : (s.status === 'Sleeping' || s.status === 'Yawning' ? 'red' : 'amber');
         let detail = `EAR ${Number(s.ear).toFixed(2)} · MAR ${Number(s.mar).toFixed(2)}`;
         if (s.status === 'Looking Down') {
-          detail = `Downward pitch (${Number(s.pitch).toFixed(1)}°) · Classified as desk activity`;
+          detail = `Downward pitch (+${Number(s.pitch).toFixed(1)}°) · Classified as desk activity`;
         } else if (s.status === 'Yawning') {
-          detail = `2.0s hysteresis ring at 70% · MAR ${Number(s.mar).toFixed(2)} threshold crossed`;
+          detail = `Oral dilation MAR ${Number(s.mar).toFixed(2)} ≥ 0.40 · Fatigue onset`;
+        } else if (s.status === 'Sleeping') {
+          detail = `Prolonged eyelid closure EAR ${Number(s.ear).toFixed(2)} < 0.20`;
         } else if (s.status === 'Attentive') {
-          detail = `Subject returned to primary board cone · Stable engagement`;
+          detail = `Returned to frontal board cone · Focus ${Number(s.score).toFixed(0)}%`;
+        } else if (s.status === 'Distracted') {
+          detail = `Attention score dipped to ${Number(s.score).toFixed(0)}%`;
+        } else if (s.status.startsWith('Looking')) {
+          detail = `Gaze directed away from lecture (${s.status})`;
         }
         logIncident(`Subject 0${s.id} transitioned to: ${s.status}`, nodeColor, detail);
       }
     }
-    prevStudentStates[s.id] = s.status;
   });
+
+  // Log subjects who exit the frame
+  Object.keys(prevStudentStates).forEach(idStr => {
+    const idNum = parseInt(idStr, 10);
+    if (!currentSubjectIds.has(idNum) && prevStudentStates[idNum] !== 'Left') {
+      prevStudentStates[idNum] = 'Left';
+      lastStateChangeTimes[idNum] = nowMs;
+      logIncident(`Subject 0${idNum} exited camera field of view`, 'amber', 'Optical track disengaged / Subject absent');
+    }
+  });
+
+  // Instantly update the Classroom Engagement Digest on every packet
+  updateAIPulseCard();
 }
 
 function connectWebSocket() {
