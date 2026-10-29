@@ -54,8 +54,8 @@ def render_student_overlay(image, track, face_landmarks, rot_vec, trans_vec, cam
     if rot_vec is not None and trans_vec is not None:
         nose_lm = face_landmarks.landmark[1]
         nose_2d = (int(nose_lm.x * img_w), int(nose_lm.y * img_h))
-        # Project 3D vector forward from nose
-        p2 = (int(nose_2d[0] + track.yaw * 3.5), int(nose_2d[1] - track.pitch * 3.5))
+        # Project 3D vector forward from nose (+pitch is down in screen Y, -pitch is up)
+        p2 = (int(nose_2d[0] + track.yaw * 3.5), int(nose_2d[1] + track.pitch * 3.5))
         cv.line(image, nose_2d, p2, color, 2, cv.LINE_AA)
         cv.circle(image, nose_2d, 3, color, -1)
 

@@ -78,7 +78,10 @@ def is_pid_alive(pid: int) -> bool:
         try:
             os.kill(pid, 0)
             return True
-        except (OSError, ProcessLookupError):
+        except PermissionError:
+            # EPERM means process exists and is active, but caller lacks signal permission
+            return True
+        except (ProcessLookupError, OSError):
             return False
 
 
@@ -124,6 +127,20 @@ def find_cams_processes() -> list:
                     for p in parts:
                         if p.isdigit() and int(p) != os.getpid():
                             pids.add(int(p))
+        except Exception:
+            pass
+
+        # Windows 11 24H2+ PowerShell CIM fallback (when wmic is deprecated/removed)
+        try:
+            ps_cmd = [
+                "powershell", "-NoProfile", "-Command",
+                "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*server.py*' } | Select-Object -ExpandProperty ProcessId"
+            ]
+            out = subprocess.check_output(ps_cmd, text=True, stderr=subprocess.DEVNULL)
+            for line in out.splitlines():
+                p = line.strip()
+                if p.isdigit() and int(p) != os.getpid():
+                    pids.add(int(p))
         except Exception:
             pass
     else:

@@ -8,9 +8,13 @@ import struct
 import signal
 import atexit
 import threading
+import warnings
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import socketserver
 import cv2 as cv
+
+# Suppress protobuf deprecation warning in Python 3.12 MediaPipe bindings
+warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 
 from cams.pipeline import CAMSPipeline
 
@@ -153,7 +157,7 @@ def vision_pipeline_thread(video_source=0):
                 need_stream = (active_video_clients > 0)
 
             if need_stream or latest_jpeg is None:
-                feed_img = image if (image.shape[1] <= 640) else cv.resize(image, (640, 360), interpolation=cv.INTER_AREA)
+                feed_img = image
                 ret, buf = cv.imencode('.jpg', feed_img, [cv.IMWRITE_JPEG_QUALITY, 75])
                 if ret:
                     with frame_condition:
@@ -211,7 +215,7 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=PAGE_DIR, **kwargs)
 
     def do_HEAD(self):
-        if self.path in ("/video_feed", "/api/data", "/api/config", "/api/calibrate"):
+        if self.path in ("/video_feed", "/api/data", "/api/config", "/api/calibrate", "/favicon.ico", "/sw.js"):
             self.send_response(200)
             self.end_headers()
             return
@@ -259,6 +263,21 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
         return super().do_POST()
 
     def do_GET(self):
+        # Cleanly serve inline SVG favicon or 204 for service worker probes
+        if self.path == "/favicon.ico":
+            self.send_response(200)
+            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            favicon_svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#0071E3"/><circle cx="16" cy="16" r="6" fill="#FFFFFF"/></svg>'
+            self.wfile.write(favicon_svg)
+            return
+
+        if self.path == "/sw.js":
+            self.send_response(204)
+            self.end_headers()
+            return
+
         # WebSocket Upgrade
         if self.headers.get("Upgrade", "").lower() == "websocket":
             self.handle_websocket_handshake()

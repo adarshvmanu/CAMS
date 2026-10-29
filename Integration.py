@@ -6,7 +6,11 @@ import os
 import sys
 import time
 import json
+import warnings
 import cv2 as cv
+
+# Suppress protobuf deprecation warning in Python 3.12 MediaPipe bindings
+warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 
 from cams.pipeline import CAMSPipeline
 from cams.hud import print_ansi_status

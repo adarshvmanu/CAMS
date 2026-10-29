@@ -328,9 +328,9 @@ function draw3DPoseSphere(ctx, yawDeg, pitchDeg, isAlert = false, rollDeg = 0) {
   ctx.stroke();
   ctx.restore();
 
-  // 3. Project 3D Head Normal Vector from Yaw & Pitch
+  // 3. Project 3D Head Normal Vector from Yaw & Pitch (+pitch is downward deflection)
   const radYaw = (yawDeg * Math.PI) / 180;
-  const radPitch = (-pitchDeg * Math.PI) / 180;
+  const radPitch = (pitchDeg * Math.PI) / 180;
   const vx = cx + r * Math.sin(radYaw) * Math.cos(radPitch);
   const vy = cy + r * Math.sin(radPitch);
 
@@ -459,7 +459,7 @@ function renderVideoReticleCanvas() {
   const pitchRad = ((primary.pitch || 0) * Math.PI) / 180;
   const rayLen = Math.min(48, w * 0.42);
   const targetRayX = centerX + Math.sin(yawRad) * rayLen;
-  const targetRayY = centerY - Math.sin(pitchRad) * rayLen;
+  const targetRayY = centerY + Math.sin(pitchRad) * rayLen;
 
   ctx.save();
   ctx.lineWidth = 1.5;
@@ -1976,13 +1976,13 @@ function pushChartPoint(timestamp, focus, mean, facing, fatiguePct, frameData = 
     });
   } else if (frameData && frameData.students && frameData.students[0]) {
     const s = frameData.students[0];
-    if (s.pitch < -18.0) {
+    if (s.pitch > 18.0) {
       registerAnomalyPin({
         timestamp,
         index: masterTelemetryStream.labels.length - 1,
         type: 'desk',
         icon: '✍',
-        label: `Desk Pitch ${Number(s.pitch).toFixed(0)}°`
+        label: `Desk Pitch +${Number(s.pitch).toFixed(0)}°`
       });
     } else if (s.velocity < -3.5 || s.impending_divergence) {
       registerAnomalyPin({
@@ -2331,7 +2331,7 @@ function runTabularThrottle() {
 
   if (pVal) {
     pVal.textContent = `P: ${cur.pitch >= 0 ? '+' : ''}${cur.pitch.toFixed(1)}°`;
-    pVal.className = cur.pitch < -12 ? 'mono tabular-nums gizmo-angle-row pitch alert' : 'mono tabular-nums gizmo-angle-row pitch';
+    pVal.className = (cur.pitch > 18 || cur.pitch < -20) ? 'mono tabular-nums gizmo-angle-row pitch alert' : 'mono tabular-nums gizmo-angle-row pitch';
   }
   if (yVal) yVal.textContent = `Y: ${cur.yaw >= 0 ? '+' : ''}${cur.yaw.toFixed(1)}°`;
   if (rVal) rVal.textContent = `R: ${cur.roll >= 0 ? '+' : ''}${cur.roll.toFixed(1)}°`;

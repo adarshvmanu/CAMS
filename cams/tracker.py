@@ -73,14 +73,22 @@ class StudentTrack:
         if bbox is not None:
             self.bbox = bbox
 
-        # Direction temporal hysteresis (require 6 consecutive frames of consistent pose to flip)
-        if direction == self.direction_candidate:
-            self.direction_candidate_frames += 1
-            if self.direction_candidate_frames >= 6:
-                self.direction = direction
+        # Dominant head orientation with Schmitt-trigger deadband (22° to exit forward, 18° to return)
+        dev_yaw = abs(yaw)
+        dev_pitch = abs(pitch)
+        max_dev = max(dev_yaw, dev_pitch)
+
+        if self.facing_classroom:
+            is_forward = (max_dev < 22.0)
         else:
-            self.direction_candidate = direction
-            self.direction_candidate_frames = 1
+            is_forward = (max_dev < 18.0)
+
+        if is_forward:
+            self.direction = "Forward"
+        elif dev_pitch >= dev_yaw:
+            self.direction = "Looking Down" if pitch > 0 else "Looking Up"
+        else:
+            self.direction = "Looking Right" if yaw > 0 else "Looking Left"
 
         # Adaptive EAR baseline (tracks user's natural open-eye ratio)
         if ear > 0.16:
@@ -113,7 +121,7 @@ class StudentTrack:
         self.sleep_detected = (self.sleep_frame_count >= MIN_SLEEP_FRAMES)
 
         # Head orientation
-        self.facing_classroom = (direction == "Forward")
+        self.facing_classroom = (self.direction == "Forward")
 
         # Instantaneous score weights
         if self.sleep_detected:
@@ -150,7 +158,7 @@ class StudentTrack:
         elif self.sleep_detected:
             self.status = "Sleeping"
         elif not self.facing_classroom:
-            self.status = direction
+            self.status = self.direction
         elif self.ema_score < 45.0:
             self.status = "Distracted"
         elif self.ema_score < 70.0:

@@ -166,6 +166,43 @@ class TestCAMSComponents(unittest.TestCase):
         self.assertTrue(tracker.tracks[1].is_active)
         self.assertFalse(tracker.tracks[2].is_active)
 
+    def test_direction_schmitt_trigger_hysteresis(self):
+        track = StudentTrack(student_id=1)
+        # 1. Forward facing (yaw = 0)
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 0.0, 0.0, "Forward")
+        self.assertEqual(track.direction, "Forward")
+        self.assertTrue(track.facing_classroom)
+
+        # 2. Angular deviation below 22° threshold (yaw = 20°) remains Forward
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 20.0, 0.0, "Forward")
+        self.assertEqual(track.direction, "Forward")
+        self.assertTrue(track.facing_classroom)
+
+        # 3. Exceeds 22° threshold (yaw = 23°) transitions to Looking Right
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 23.0, 0.0, "Looking Right")
+        self.assertEqual(track.direction, "Looking Right")
+        self.assertFalse(track.facing_classroom)
+
+        # 4. Schmitt deadband: yaw drops to 20° (above 18° return threshold) stays Looking Right
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 20.0, 0.0, "Looking Right")
+        self.assertEqual(track.direction, "Looking Right")
+        self.assertFalse(track.facing_classroom)
+
+        # 5. Yaw drops below 18° (yaw = 14°) returns to Forward
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 14.0, 0.0, "Forward")
+        self.assertEqual(track.direction, "Forward")
+        self.assertTrue(track.facing_classroom)
+
+    def test_direction_status_mutual_consistency(self):
+        track = StudentTrack(student_id=1)
+        # Test downward pitch (pitch = +26.0)
+        track.update((0.5, 0.5), 0.28, 0.08, 26.0, 0.0, 0.0, "Looking Down")
+        self.assertEqual(track.direction, "Looking Down")
+        self.assertEqual(track.status, "Looking Down")
+        d = track.to_dict()
+        self.assertEqual(d["direction"], d["status"])
+        self.assertEqual(d["direction"], "Looking Down")
+
 
 if __name__ == '__main__':
     unittest.main()
