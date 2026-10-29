@@ -67,11 +67,15 @@ class CAMSPipeline:
                 self.fps = 15.0 / elapsed
             self.t_start = now
 
-        # High-Speed Optimization: normalize to standard 640x360 prior to FaceMesh
+        # High-Speed Optimization: normalize width to 640 while strictly preserving native aspect ratio
         # MediaPipe normalized landmarks (0.0-1.0) are resolution-invariant,
-        # but 640x360 runs in ~8-12ms instead of 45-60ms at 1080p, delivering 50+ FPS throughput.
+        # but 640px runs in ~8-12ms instead of 45-60ms at 1080p, delivering 50+ FPS throughput without distorting facial proportions.
         if image.shape[1] > 640:
-            image = cv.resize(image, (640, 360), interpolation=cv.INTER_AREA)
+            target_w = 640
+            target_h = int(round(image.shape[0] * (target_w / image.shape[1])))
+            if target_h % 2 != 0:
+                target_h += 1
+            image = cv.resize(image, (target_w, target_h), interpolation=cv.INTER_AREA)
 
         img_h, img_w = image.shape[:2]
 

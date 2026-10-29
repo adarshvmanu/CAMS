@@ -136,7 +136,6 @@ def vision_pipeline_thread(video_source=0):
             if not success:
                 time.sleep(0.02)
                 continue
-                continue
 
             # Sync calibration & capacity
             pipeline.set_calibration(
@@ -197,7 +196,11 @@ def vision_pipeline_thread(video_source=0):
                 last_broadcast_time = now
     finally:
         print("[CAMS Vision Engine] Releasing optical sensor...")
-        cap.release()
+        if cap is not None:
+            try:
+                cap.release()
+            except Exception:
+                pass
         cv.destroyAllWindows()
 
 
@@ -284,7 +287,7 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
                 active_video_clients += 1
 
             try:
-                while True:
+                while is_running:
                     with frame_condition:
                         frame_condition.wait(timeout=0.016)
                         jpeg_bytes = latest_jpeg
@@ -294,7 +297,7 @@ class CAMSUnifiedHandler(SimpleHTTPRequestHandler):
                         self.wfile.write(b"Content-Type: image/jpeg\r\n\r\n")
                         self.wfile.write(jpeg_bytes)
                         self.wfile.write(b"\r\n")
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, ConnectionError, OSError):
                 pass
             finally:
                 with clients_lock:

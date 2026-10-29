@@ -110,6 +110,38 @@ class TestCAMSComponents(unittest.TestCase):
         self.assertFalse(track.is_attentive)
         self.assertEqual(track.status, "Distracted")
 
+    def test_student_track_dictionary_serialization(self):
+        track = StudentTrack(student_id=1)
+        track.update(
+            centroid=(0.52, 0.48), ear=0.25, mar=0.09,
+            pitch=12.0, yaw=-5.0, roll=2.0, direction="Forward",
+            bbox=[0.40, 0.35, 0.22, 0.28]
+        )
+        d = track.to_dict()
+        self.assertEqual(d["id"], 1)
+        self.assertEqual(d["position"], "Center")
+        self.assertEqual(d["missing_frames"], 0)
+        self.assertTrue(d["active"])
+        self.assertIn("score", d)
+        self.assertIn("velocity", d)
+        self.assertIn("impending_divergence", d)
+        self.assertEqual(d["bbox"], [0.40, 0.35, 0.22, 0.28])
+
+    def test_dynamic_ear_threshold_bounds(self):
+        track = StudentTrack(student_id=1)
+        # Test low baseline
+        for _ in range(20):
+            track.update((0.5, 0.5), 0.18, 0.08, 0.0, 0.0, 0.0, "Forward")
+        # Should be bounded at >= 0.14
+        dyn_low = max(min(track.ear_baseline * 0.68, 0.21), 0.14)
+        self.assertGreaterEqual(dyn_low, 0.14)
+
+        # Test high baseline
+        for _ in range(40):
+            track.update((0.5, 0.5), 0.38, 0.08, 0.0, 0.0, 0.0, "Forward")
+        dyn_high = max(min(track.ear_baseline * 0.68, 0.21), 0.14)
+        self.assertLessEqual(dyn_high, 0.21)
+
     def test_multistudent_tracker_slot_reset(self):
         tracker = MultiStudentTracker(max_faces=4)
         # Simulate 2 detected faces

@@ -1901,8 +1901,8 @@ function exportIncidentsToJson() {
   frames.forEach((f, idx) => {
     if (!f) return;
     const s = (f.students && f.students[0]) || null;
-    const isFatigue = (s && (s.mar >= 0.42 || s.status === 'Yawning' || s.status === 'Sleeping')) || (f.yawn_detected > 0 || f.sleep_detected > 0);
-    const isAverted = (s && (!s.facing_classroom || s.pitch < -18 || Math.abs(s.yaw) > 26)) || (f.facing_classroom === 0);
+    const isFatigue = (s && (s.mar >= 0.40 || s.status === 'Yawning' || s.status === 'Sleeping')) || (f.yawn_detected > 0 || f.sleep_detected > 0);
+    const isAverted = (s && (!s.facing_classroom || s.pitch > 22 || s.pitch < -22 || Math.abs(s.yaw) > 24)) || (f.facing_classroom === 0);
 
     if (isFatigue || isAverted) {
       incidents.push({
@@ -2183,7 +2183,7 @@ function runAnimationFrameLoop(now) {
     if (sparkCanvas) {
       const ctx = configureRetinaCanvas(sparkCanvas, 130, 22);
       const buffer = engine.studentSparklines[s.id];
-      const isExceeded = s.mar > 0.60 || s.ear < 0.20;
+      const isExceeded = s.mar >= 0.40 || s.ear < 0.20;
       drawStudentSparkline(ctx, buffer, isExceeded);
     }
 
@@ -2192,7 +2192,7 @@ function runAnimationFrameLoop(now) {
       const circumference = 56.55;
       const rowOffset = circumference * (1 - Math.min(1, animState.gateProgress));
       rowRing.style.strokeDashoffset = rowOffset.toFixed(2);
-      if (s.mar > 0.60 || s.ear < 0.20) {
+      if (s.mar >= 0.40 || s.ear < 0.20) {
         rowRing.style.stroke = 'var(--signal-red)';
       } else if (animState.gateProgress > 0.05) {
         rowRing.style.stroke = 'var(--signal-amber)';

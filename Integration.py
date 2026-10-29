@@ -52,7 +52,7 @@ def main():
         print(f"[CAMS] Error: Unable to open video source '{video_source}'.")
         sys.exit(1)
 
-    pipeline = CAMSPipeline(max_faces=max_students, pitch_offset=-16.0, yaw_offset=0.0)
+    pipeline = CAMSPipeline(max_faces=max_students, pitch_offset=0.0, yaw_offset=0.0)
 
     window_name = "CAMS Live Monitor"
     if display_window:

@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from collections import deque
 
@@ -88,8 +89,8 @@ class StudentTrack:
                 # Use 75th percentile as open-eye baseline
                 self.ear_baseline = float(np.percentile(self.ear_history, 75))
 
-        # Dynamic sleep threshold: 65% of open-eye baseline (bounded between 0.14 and 0.19)
-        dynamic_ear_threshold = max(min(self.ear_baseline * 0.65, 0.19), 0.14)
+        # Dynamic sleep threshold: 68% of open-eye baseline (bounded between 0.14 and 0.21 to align with UI 0.20 alert gate)
+        dynamic_ear_threshold = max(min(self.ear_baseline * 0.68, 0.21), 0.14)
 
         # Yawn detection with temporal hysteresis (MAR >= 0.40 sustained for 6 frames)
         MIN_YAWN_FRAMES = 6
@@ -183,6 +184,7 @@ class StudentTrack:
             "status": self.status,
             "direction": self.direction,
             "active": self.is_active,
+            "missing_frames": self.missing_frames,
             "centroid": [cx, cy],
             "position": pos,
             "bbox": self.bbox
@@ -238,7 +240,7 @@ class MultiStudentTracker:
                 if det_idx in matched_detections:
                     continue
                 det_c = detected_faces[det_idx]["centroid"]
-                dist = np.hypot(track.centroid[0] - det_c[0], track.centroid[1] - det_c[1])
+                dist = math.hypot(track.centroid[0] - det_c[0], track.centroid[1] - det_c[1])
                 if dist < best_dist and dist <= self.max_jump_radius:
                     best_dist = dist
                     best_det_idx = det_idx

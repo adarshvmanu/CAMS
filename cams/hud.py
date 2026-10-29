@@ -46,6 +46,10 @@ def render_student_overlay(image, track, face_landmarks, rot_vec, trans_vec, cam
     # Draw corner brackets
     draw_corner_brackets(image, (min_x, min_y, box_w, box_h), color, length=20, thickness=2)
 
+    # Draw student ID badge and status tag
+    badge_text = f"#{track.student_id} {track.status} ({track.ema_score:.0f}%)"
+    cv.putText(image, badge_text, (min_x, max(min_y - 8, 16)), cv.FONT_HERSHEY_SIMPLEX, 0.42, color, 1, cv.LINE_AA)
+
     # Draw 3D Nose Direction Vector if rot_vec is available
     if rot_vec is not None and trans_vec is not None:
         nose_lm = face_landmarks.landmark[1]
