@@ -1,76 +1,727 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAMS</title>
-    <link href='https://fonts.googleapis.com/css?family=Poppins' rel='stylesheet'>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="css/style.css" />
-    <script src="js/plotly.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAMS Studio — Intelligent Vision Telemetry & Biometrics</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230071E3'/><circle cx='16' cy='16' r='6' fill='%23FFFFFF'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/chart.umd.min.js"></script>
 </head>
-
 <body>
-    <nav id="desktop-nav">
-        <div class="logo">CAMS</div>
-        <div>
-            <ul class="nav-links">
-                <li><a href="Index.html">Home</a></li>
-                <li><a href="about.html">About</a></li>
-                <li><a href="Team.html">Team</a></li>
-            </ul>
-        </div>
-    </nav>
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                        <div class="overall-attention-container">
-                            <p class="overall-attention">0%</p>
-                            <p class="student-count">Average Attention From 0 Students</p>
-                            <p class="attention-count"></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="attentionscore" style="width: 100%; height:100%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="drowsy" style="width: 100%; height:100%"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="yawn" style="width: 100%; height:100%"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="facing" style="width: 100%; height:100%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- CINEMATIC BOOTUP SCREEN: THE AWAKENING EYE -->
+  <div id="bootloader-overlay" class="cams-bootloader-overlay">
+    <div class="bootloader-ambient-glow"></div>
+    <button id="btn-skip-boot" class="btn-skip-boot">Skip Intro ➔</button>
+
+    <div class="boot-eye-container">
+      <svg class="boot-eye-svg" viewBox="0 0 240 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="eye-clip-path">
+            <path id="eye-clip-shape" d="M 20,70 Q 120,70 220,70 Q 120,70 20,70 Z" />
+          </clipPath>
+          <radialGradient id="iris-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.95"/>
+            <stop offset="55%" stop-color="#0071E3" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#14151B" stop-opacity="0.3"/>
+          </radialGradient>
+          <linearGradient id="lid-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#52525B" stop-opacity="0.4"/>
+            <stop offset="50%" stop-color="#FAFAFA" stop-opacity="0.95"/>
+            <stop offset="100%" stop-color="#52525B" stop-opacity="0.4"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Surrounding 468-Point Mesh Constellation Points & Lines -->
+        <g id="constellation-group" class="constellation-group">
+          <circle cx="20" cy="70" r="2.5" class="mesh-node" />
+          <circle cx="220" cy="70" r="2.5" class="mesh-node" />
+          <circle cx="120" cy="18" r="2" class="mesh-node" />
+          <circle cx="120" cy="122" r="2" class="mesh-node" />
+          <circle cx="65" cy="26" r="1.5" class="mesh-node" />
+          <circle cx="175" cy="26" r="1.5" class="mesh-node" />
+          <line x1="20" y1="70" x2="65" y2="26" class="mesh-filament" />
+          <line x1="65" y1="26" x2="120" y2="18" class="mesh-filament" />
+          <line x1="120" y1="18" x2="175" y2="26" class="mesh-filament" />
+          <line x1="175" y1="26" x2="220" y2="70" class="mesh-filament" />
+          <line x1="20" y1="70" x2="120" y2="122" class="mesh-filament" />
+          <line x1="220" y1="70" x2="120" y2="122" class="mesh-filament" />
+        </g>
+
+        <!-- Eye Interior clipped to Eyelid Aperture -->
+        <g clip-path="url(#eye-clip-path)">
+          <!-- Sclera base -->
+          <rect x="0" y="0" width="240" height="140" fill="#111218" />
+
+          <!-- High-Tech Coordinate Grid -->
+          <line x1="0" y1="70" x2="240" y2="70" stroke="rgba(255,255,255,0.08)" stroke-dasharray="2 3" />
+          <line x1="120" y1="0" x2="120" y2="140" stroke="rgba(255,255,255,0.08)" stroke-dasharray="2 3" />
+
+          <!-- Outer Iris Ring -->
+          <circle id="boot-iris-ring" cx="120" cy="70" r="32" stroke="#0071E3" stroke-width="1.8" stroke-dasharray="4 2" />
+
+          <!-- Glowing Iris Body -->
+          <circle id="boot-iris-body" cx="120" cy="70" r="28" fill="url(#iris-glow)" />
+
+          <!-- Middle Reticle Ring with Precision Degree Ticks -->
+          <circle cx="120" cy="70" r="20" stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-dasharray="1 3" />
+
+          <!-- Pupil Aperture -->
+          <circle id="boot-pupil" cx="120" cy="70" r="10" fill="#090A0F" stroke="#38BDF8" stroke-width="1.2" />
+
+          <!-- Pupil Specular Highlight Reflection -->
+          <circle cx="116" cy="66" r="2.5" fill="#FFFFFF" opacity="0.9" />
+
+          <!-- Scanning Radar Sweep Ray -->
+          <line id="radar-sweep-line" x1="120" y1="70" x2="152" y2="70" stroke="#30D158" stroke-width="1.8" stroke-linecap="round" />
+        </g>
+
+        <!-- Upper Eyelid Contour Path -->
+        <path id="eyelid-top-path" d="M 20,70 Q 120,70 220,70" stroke="url(#lid-gradient)" stroke-width="2.5" stroke-linecap="round" fill="none" />
+
+        <!-- Lower Eyelid Contour Path -->
+        <path id="eyelid-bottom-path" d="M 20,70 Q 120,70 220,70" stroke="url(#lid-gradient)" stroke-width="2.5" stroke-linecap="round" fill="none" />
+
+        <!-- Canthi Corner Accent Dots -->
+        <circle cx="20" cy="70" r="3" fill="#FAFAFA" />
+        <circle cx="220" cy="70" r="3" fill="#FAFAFA" />
+      </svg>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script src="js/script.js"></script>
+    <!-- Boot Telemetry Readout -->
+    <div class="boot-console-wrap">
+      <h1 class="boot-brand-title">CAMS STUDIO</h1>
+      <span class="boot-brand-sub">Intelligent Vision Telemetry System</span>
+
+      <div class="boot-progress-track">
+        <div id="boot-progress-bar" class="boot-progress-bar"></div>
+      </div>
+
+      <div id="boot-log-text" class="boot-log-text mono tabular-nums">Initializing optical vision pipeline...</div>
+    </div>
+  </div>
+
+  <div class="outer-viewport">
+    <div class="studio-sheet">
+      <!-- 2.1 TOP ARCHITECTURAL HEADER BAR -->
+      <header class="studio-header">
+        <div class="header-left-zone">
+          <div class="brand-emblem" id="brand-emblem-btn" title="CAMS Vision Core · Click to Replay Boot Sequence">
+            <div class="brand-emblem-core"></div>
+          </div>
+          <div class="brand-breadcrumb">
+            <span class="crumb-brand">CAMS</span>
+            <span class="crumb-sep">/</span>
+            <span id="breadcrumb-course" class="crumb-course">Configure Class...</span>
+            <span id="breadcrumb-room" class="crumb-room">· Session Init</span>
+            <button id="btn-edit-session" class="btn-edit-session" title="Configure Course &amp; Classroom Setup">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="header-divider-v"></div>
+
+          <ul class="view-switcher-tabs">
+            <li><button class="view-tab-btn active" data-tab="studio">Studio</button></li>
+            <li><a href="about.html" class="view-tab-btn">About &amp; V2 Docs</a></li>
+            <li><a href="Team.html" class="view-tab-btn">The Team</a></li>
+          </ul>
+        </div>
+
+        <!-- Dynamic Session Island -->
+        <div class="header-center-zone">
+          <div id="dynamic-island" class="dynamic-session-island">
+            <div class="island-segment">
+              <span id="island-stream-dot" class="island-dot green"></span>
+              <span id="island-stream-fps" class="tabular-nums mono">LIVE 30.0 fps</span>
+            </div>
+
+            <div class="island-divider"></div>
+
+            <div class="island-segment">
+              <svg class="island-hysteresis-ring" viewBox="0 0 20 20">
+                <circle class="ring-track" cx="10" cy="10" r="8"></circle>
+                <circle id="island-ring-progress" class="ring-progress" cx="10" cy="10" r="8" stroke-dasharray="50.26" stroke-dashoffset="50.26"></circle>
+              </svg>
+              <span id="island-hysteresis-text">Initializing Optical Engine...</span>
+            </div>
+
+            <div class="island-divider"></div>
+
+            <div class="island-segment">
+              <span id="island-focus-val" class="tabular-nums mono font-semibold" style="color: var(--signal-amber)">--.-% Focus</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Header Action Controls -->
+        <div class="header-right-zone">
+          <button id="btn-calibrate" class="btn-calibrate" title="Calibrate zero-pose reference to compensate for laptop screen tilt">
+            <span class="dot-indicator blue"></span>
+            <span>Calibrate Pose</span>
+          </button>
+
+          <div class="mode-selector-wrapper">
+            <select id="capacity-select" class="mode-select" title="Classroom dynamic tracking capacity mode">
+              <option value="auto" selected>MODE: Auto-Adaptive</option>
+              <option value="4">MODE: Max 4 Seats</option>
+              <option value="8">MODE: Max 8 Seats</option>
+              <option value="12">MODE: Max 12 Seats</option>
+              <option value="16">MODE: Max 16 Seats</option>
+            </select>
+            <span class="select-caret">▼</span>
+          </div>
+
+          <button id="btn-export-csv" class="btn-export-csv" title="Export full session biometrics and logs to CSV">
+            <span>⬇</span>
+            <span>Export .csv</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- MAIN STUDIO WORKSPACE -->
+      <main id="view-studio" class="studio-view-transition" style="display: flex; flex-direction: column; flex: 1;">
+        <!-- ROW 1: SEAMLESS 4-COLUMN METRIC RIBBON -->
+        <section class="metric-ribbon">
+          <!-- Col 1: Instantaneous Focus -->
+          <div class="ribbon-col">
+            <div class="ribbon-header-row">
+              <span class="ribbon-micro-label">Instantaneous Focus</span>
+              <div class="ribbon-meta-tag">
+                <span id="focus-dot" class="dot-indicator green"></span>
+                <span id="focus-delta" class="mono tabular-nums">0.0% vs mean</span>
+              </div>
+            </div>
+            <div class="ribbon-hero-row">
+              <span id="metric-focus-hero" class="ribbon-hero-num tabular-nums">--.-%</span>
+            </div>
+            <div class="ribbon-bottom-row">
+              <span>4Hz tabular · EMA smoothed</span>
+              <div class="gpu-bar-track">
+                <div id="bar-focus-fill" class="gpu-bar-fill" style="transform: scaleX(0);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Col 2: Session Rolling Mean -->
+          <div class="ribbon-col">
+            <div class="ribbon-header-row">
+              <span class="ribbon-micro-label">Session Rolling Mean</span>
+              <div class="ribbon-meta-tag">
+                <span class="dot-indicator green"></span>
+                <span id="meta-cohort-stable">Scanning camera FOV</span>
+              </div>
+            </div>
+            <div class="ribbon-hero-row">
+              <span id="metric-mean-hero" class="ribbon-hero-num tabular-nums">--.-%</span>
+            </div>
+            <div class="ribbon-bottom-row">
+              <span id="meta-window-label">Elapsed window</span>
+              <div class="gpu-bar-track">
+                <div id="bar-mean-fill" class="gpu-bar-fill green" style="transform: scaleX(0);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Col 3: Board Gaze Alignment -->
+          <div class="ribbon-col">
+            <div class="ribbon-header-row">
+              <span class="ribbon-micro-label">Board Gaze Alignment</span>
+              <div class="ribbon-meta-tag">
+                <span class="dot-indicator blue"></span>
+                <span id="meta-pitch-angle" class="mono tabular-nums">0.0° pitch</span>
+              </div>
+            </div>
+            <div class="ribbon-hero-row">
+              <span id="metric-facing-hero" class="ribbon-hero-num tabular-nums">--.-%</span>
+            </div>
+            <div class="ribbon-bottom-row">
+              <span>Within normal cone · session mean</span>
+              <div class="gpu-bar-track">
+                <div id="bar-facing-fill" class="gpu-bar-fill blue" style="transform: scaleX(0);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Col 4: Fatigue & Yawn Vector -->
+          <div class="ribbon-col">
+            <div class="ribbon-header-row">
+              <span class="ribbon-micro-label">Fatigue &amp; Yawn Vector</span>
+              <div class="ribbon-meta-tag">
+                <span id="yawn-dot" class="dot-indicator green"></span>
+                <span id="meta-yawn-trigger">Normal closure rate</span>
+              </div>
+            </div>
+            <div class="ribbon-hero-row">
+              <span id="metric-fatigue-hero" class="ribbon-hero-num tabular-nums">0.00</span>
+            </div>
+            <div class="ribbon-bottom-row">
+              <span id="meta-hysteresis-gate">Hysteresis gate: 0% (0.0s)</span>
+              <div class="gpu-bar-track">
+                <div id="bar-fatigue-fill" class="gpu-bar-fill red" style="transform: scaleX(0);"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ROW 2: MIDDLE SPLIT PANE -->
+        <section class="middle-split-grid">
+          <!-- Left Pane (5 Cols): Optical Feed -->
+          <div class="optical-feed-pane">
+            <div class="pane-section-header">
+              <div class="pane-title-group">
+                <span class="pane-title">Optical Feed</span>
+                <span class="pane-subtitle">· 60fps Canvas Lerp Overlay</span>
+              </div>
+              <div class="pane-status-pill">
+                <span class="dot-indicator blue"></span>
+                <span id="feed-locked-count" class="mono tabular-nums">0 subject(s) locked</span>
+              </div>
+            </div>
+
+            <!-- 16:9 Video Monitor -->
+            <div class="video-viewport">
+              <div class="video-frosted-pill">
+                <span class="dot-indicator green"></span>
+                <span>Camera Feed · Real-Time Optical Stream</span>
+              </div>
+
+              <!-- Reticle canvas overlay -->
+              <canvas id="video-reticle-canvas" class="video-reticle-canvas"></canvas>
+
+              <!-- Video Stream -->
+              <img id="camera-feed" class="video-stream-elem" src="/video_feed" alt="Real-Time Vision Stream" />
+
+              <!-- 3D Head-Pose Sphere Gizmo -->
+              <div id="gizmo-hud-container" class="gizmo-hud-container">
+                <canvas id="gizmo-canvas" class="gizmo-sphere-canvas" width="68" height="68"></canvas>
+                <div class="gizmo-readout-col">
+                  <span class="gizmo-readout-header">3D Head Pose</span>
+                  <span id="gizmo-pitch-val" class="mono tabular-nums gizmo-angle-row pitch">P: 0.0°</span>
+                  <span id="gizmo-yaw-val" class="mono tabular-nums gizmo-angle-row yaw">Y: 0.0°</span>
+                  <span id="gizmo-roll-val" class="mono tabular-nums gizmo-angle-row roll">R: 0.0°</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer Layer Control Bar -->
+            <div class="layer-controls-bar">
+              <div class="layer-pills-group">
+                <span class="layer-label">Overlays</span>
+                <button class="layer-pill-btn active" data-layer="reticle">Face Reticle</button>
+                <button class="layer-pill-btn active" data-layer="gizmo">3D Pose Gizmo</button>
+                <button class="layer-pill-btn" data-layer="mesh">Mesh Points</button>
+                <button class="layer-pill-btn" data-layer="blur">Identity Blur</button>
+              </div>
+              <span class="layer-render-meta mono">Zero-Copy RAM Stream · 30.0 FPS</span>
+            </div>
+          </div>
+
+          <!-- Right Pane (7 Cols): Temporal Engagement Curve -->
+          <div class="temporal-curve-pane">
+            <div class="pane-section-header">
+              <div class="pane-title-group">
+                <span class="pane-title">Classroom Engagement &amp; Telemetry Curve</span>
+                <span class="pane-subtitle">· Real-Time Trend</span>
+              </div>
+              <div class="curve-header-actions">
+                <div class="curve-segmented-filter">
+                  <button class="filter-tab-btn active" data-filter="all">All</button>
+                  <button class="filter-tab-btn" data-filter="focus">Focus</button>
+                  <button class="filter-tab-btn" data-filter="gaze">Gaze</button>
+                  <button class="filter-tab-btn" data-filter="fatigue">Fatigue</button>
+                </div>
+                <div class="curve-zoom-actions">
+                  <button id="btn-header-reset-zoom" class="filter-tab-btn btn-header-reset hidden" title="Reset Zoom to Live Stream (Esc or Double-Click)">⟲ Reset Zoom</button>
+                  <button id="btn-open-deep-insight" class="filter-tab-btn btn-deep-insight-trigger" title="Inspect Telemetry Deep Insight Studio">🔍 Deep Insight</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Custom Legend Strip -->
+            <div class="curve-legend-strip">
+              <div class="legend-item">
+                <span class="legend-bullet" style="background-color: var(--ink-primary);"></span>
+                <span>Live Focus (<span id="leg-focus" class="mono tabular-nums">--.-%</span>)</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-bullet" style="background-color: var(--ink-tertiary);"></span>
+                <span>Session Mean (<span id="leg-mean" class="mono tabular-nums">--.-%</span>)</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-bullet" style="background-color: var(--signal-blue);"></span>
+                <span>Board Alignment (<span id="leg-facing" class="mono tabular-nums">--.-%</span>)</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-bullet" style="background-color: var(--signal-red);"></span>
+                <span>Mouth Ratio / MAR (<span id="leg-mar" class="mono tabular-nums">0.00</span>)</span>
+              </div>
+            </div>
+
+            <!-- Chart Canvas (Stretches to fill entire height cleanly) -->
+            <div class="chart-canvas-container" id="chart-canvas-wrapper">
+              <canvas id="master-chart-canvas"></canvas>
+
+              <!-- Interactive Milestone Anomaly Pins Strip -->
+              <div id="chart-anomaly-pins" class="chart-anomaly-pins"></div>
+
+              <!-- Interactive Crop Selection Marquee Box -->
+              <div id="chart-crop-marquee" class="chart-crop-marquee hidden">
+                <div class="crop-corner top-left"></div>
+                <div class="crop-corner top-right"></div>
+                <div class="crop-corner bottom-left"></div>
+                <div class="crop-corner bottom-right"></div>
+                <div id="crop-badge" class="crop-badge mono tabular-nums">Selecting window...</div>
+              </div>
+
+              <!-- Floating Deep Insight Floating HUD Bar (Slides down on zoom) -->
+              <div id="curve-insight-hud" class="curve-insight-hud hidden">
+                <div class="insight-hud-left">
+                  <span class="insight-badge"><span class="pulse-indicator"></span> Deep Insight · <strong id="hud-zoom-level">1.0x</strong></span>
+                  <span class="insight-range-pill mono" id="hud-time-range">--:--:-- ➔ --:--:-- (<span id="hud-duration">0s</span>)</span>
+                  <div class="insight-metrics-pills">
+                    <span class="hud-pill">Mean: <strong id="hud-avg-focus">--.-%</strong></span>
+                    <span class="hud-pill">Min/Max: <strong id="hud-min-max">-- / --</strong></span>
+                    <span class="hud-pill">Gaze: <strong id="hud-gaze">--.-%</strong></span>
+                    <span class="hud-pill">Trend: <strong id="hud-trend">--</strong></span>
+                  </div>
+                </div>
+                <div class="insight-hud-right">
+                  <button id="btn-hud-modal" class="hud-action-btn" title="Open Forensic Deep Insight Modal">⤢ Deep Studio</button>
+                  <button id="btn-hud-copy" class="hud-action-btn" title="Copy Slice Telemetry to Clipboard">📋 Copy Slice</button>
+                  <button id="btn-hud-reset" class="hud-action-btn hud-reset-btn" title="Reset Zoom to Live Stream (Double-Click or Esc)">⟲ Live Stream</button>
+                </div>
+              </div>
+
+              <!-- Interactive Mini Timeline Scrub Bar (Active when zoomed) -->
+              <div id="chart-scrub-bar" class="chart-scrub-bar hidden">
+                <div class="scrub-track" id="scrub-track">
+                  <div id="chart-scrub-handle" class="scrub-handle"></div>
+                </div>
+                <span class="scrub-hint mono">Shift+Drag or drag slider to scrub timeline</span>
+              </div>
+            </div>
+
+            <!-- Real Telemetry Status Footer (Aligned with Left Pane Layer Controls) -->
+            <div class="timeline-footer-bar">
+              <div class="timeline-footer-desc-group">
+                <span id="timeline-footer-desc" class="timeline-footer-desc">100-pt Sliding Window · 4-Trace Telemetry Stream</span>
+                <span class="timeline-zoom-hint mono">💡 Drag to crop &amp; zoom · Double-click to inspect · Esc to reset</span>
+              </div>
+              <div class="timeline-footer-stats mono tabular-nums">
+                <span id="timeline-buffer-pill" class="timeline-buffer-pill hidden">● Live Buffering (+<span id="timeline-buffered-count">0</span>)</span>
+                <span>Elapsed: <strong id="timeline-session-elapsed">00:00:00</strong></span>
+                <span class="timeline-stat-sep">·</span>
+                <span><strong id="timeline-frame-counter">0</strong> frames processed</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ROW 3: BOTTOM SPLIT PANE -->
+        <section class="bottom-split-grid">
+          <!-- Left Pane (8 Cols): Participant Biometric Ledger -->
+          <div class="biometric-ledger-pane">
+            <div class="ledger-header">
+              <div class="pane-title-group">
+                <span class="pane-title">Participant Biometric Ledger</span>
+                <span class="pane-subtitle">· Click row to isolate trajectory &amp; inspect 3D pose</span>
+              </div>
+              <span id="ledger-active-slots" class="mono tabular-nums text-xs" style="color: var(--ink-secondary);">Scanning camera field of view...</span>
+            </div>
+
+            <div class="ledger-table-container">
+              <table class="swiss-ledger-table">
+                <thead>
+                  <tr>
+                    <th>Participant</th>
+                    <th>Posture &amp; Hysteresis</th>
+                    <th>Focus (EMA)</th>
+                    <th>Ocular Ratio (EAR &ge; 0.20)</th>
+                    <th>Mouth Ratio (MAR &le; 0.40)</th>
+                    <th>5s Waveform</th>
+                  </tr>
+                </thead>
+                <tbody id="ledger-table-body">
+                  <!-- Real tracked students or clean empty state are rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ledger-footer-bar">
+              <span>Motion Pipeline &bull; Bounding Frame: 60fps EMA Lerp (alpha=0.22) &bull; Numerals: 4Hz Tabular Throttle &bull; State Gate: 2.0s SVG Ring Hysteresis</span>
+            </div>
+          </div>
+
+          <!-- Right Pane (4 Cols): Session Intelligence & Log -->
+          <div class="session-log-pane">
+            <div class="log-pane-header">
+              <span class="pane-title">Session Intelligence &amp; Log</span>
+              <div class="pane-status-pill">
+                <span class="dot-indicator green"></span>
+                <span>Live stream</span>
+              </div>
+            </div>
+
+            <!-- Classroom Engagement Digest Card -->
+            <div id="ai-pulse-card" class="ai-pulse-card stable">
+              <div class="ai-pulse-header-row">
+                <div class="ai-pulse-title-wrap">
+                  <svg class="ai-pulse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                  </svg>
+                  <span class="ai-pulse-micro-title">Classroom Engagement Digest</span>
+                </div>
+                <span class="mono tabular-nums" style="font-size: 10.5px; color: var(--ink-tertiary);">Live Observation</span>
+              </div>
+
+              <div class="ai-pulse-body">
+                <p id="ai-pulse-headline" class="ai-pulse-headline">
+                  Scanning optical field of view — awaiting participants.
+                </p>
+                <p id="ai-pulse-detail" class="ai-pulse-detail">
+                  Tracking active facial geometry, eye aspect ratios, and head orientation in real time.
+                </p>
+              </div>
+
+              <div class="ai-pulse-chips-row">
+                <button id="btn-copy-brief" class="pulse-action-chip" title="Copy institutional plain-text session report to clipboard">
+                  <span>📋</span>
+                  <span id="btn-copy-brief-text">Copy Session Summary</span>
+                </button>
+                <button id="btn-mute-desk" class="pulse-action-chip" title="Classify downward pitch as focused desk note-taking">
+                  <span id="btn-mute-desk-text">Toggle Desk-Work Mode</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Vertical Hairline Telemetry Timeline -->
+            <div class="telemetry-timeline-container">
+              <div class="telemetry-timeline-thread"></div>
+              <div id="telemetry-event-list" class="telemetry-timeline-list">
+                <!-- Dynamically populated with real telemetry events -->
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- MASTER ARCHITECTURAL FOOTER STRIP -->
+      <footer class="studio-footer-strip">
+        <div class="footer-strip-inner mono">
+          <span class="footer-tag">CAMS v3.0</span>
+          <span class="footer-stat">Classroom Attention Monitoring System</span>
+          <span class="footer-sep">·</span>
+          <span class="footer-stat">Department of Computer Science &amp; Engineering</span>
+          <span class="footer-sep">·</span>
+          <span class="footer-stat">Edge Computer Vision Telemetry</span>
+          <span class="footer-sep">·</span>
+          <span class="footer-stat">FERPA/GDPR Compliant</span>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- INITIAL BOOT & SESSION CONFIGURATION MODAL -->
+  <div id="session-modal-backdrop" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-emblem">
+            <div class="brand-emblem-core"></div>
+          </div>
+          <div>
+            <h2 class="modal-title">Configure Classroom Session</h2>
+            <p class="modal-subtitle">Enter your course and classroom parameters to initialize live CAMS telemetry.</p>
+          </div>
+        </div>
+      </div>
+
+      <form id="session-config-form" class="modal-body">
+        <div class="form-row">
+          <label class="form-label" for="input-class-name">Course / Subject Name</label>
+          <input type="text" id="input-class-name" class="form-input" placeholder="e.g. CS-301 Algorithms &amp; Data Structures" required />
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label class="form-label" for="input-room">Classroom / Hall ID</label>
+            <input type="text" id="input-room" class="form-input" placeholder="e.g. Lecture Hall 204" required />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="input-instructor">Instructor / Lead (Optional)</label>
+            <input type="text" id="input-instructor" class="form-input" placeholder="e.g. Prof. Adarsh Manu" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="btn-modal-cancel" class="btn-modal-secondary" style="display: none;">Cancel</button>
+          <button type="submit" class="btn-modal-primary">
+            <span>Initialize Live Session</span>
+            <span>→</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- COMPREHENSIVE TELEMETRY DEEP INSIGHT STUDIO MODAL -->
+  <div id="deep-insight-modal-backdrop" class="modal-backdrop">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header modal-header-studio">
+        <div class="modal-title-wrap">
+          <div class="modal-emblem emblem-deep-insight">
+            <span class="emblem-glyph">🔍</span>
+          </div>
+          <div>
+            <div class="modal-title-row">
+              <h2 class="modal-title">Classroom Telemetry Deep Insight Studio</h2>
+              <span id="modal-slice-tag" class="modal-tag mono tabular-nums">Interval: --:--:-- ➔ --:--:--</span>
+            </div>
+            <p class="modal-subtitle">Forensic micro-interval biometric inspection, kinematic trajectory analysis, and pedagogical diagnosis.</p>
+          </div>
+        </div>
+        <button id="btn-close-deep-modal" class="modal-close-btn" title="Close (Esc)">&times;</button>
+      </div>
+
+      <div class="modal-body modal-studio-body">
+        <!-- 4-Card Analytical KPI Matrix -->
+        <div class="modal-kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-label">Interval Mean Focus</span>
+            <div class="kpi-val-row">
+              <strong id="modal-kpi-mean" class="kpi-value mono tabular-nums">--.-%</strong>
+              <span id="modal-kpi-delta" class="kpi-sub mono tabular-nums">-- vs session</span>
+            </div>
+            <span id="modal-kpi-range" class="kpi-desc mono">Min: --% · Max: --% · StdDev: &plusmn;--%</span>
+          </div>
+
+          <div class="kpi-card">
+            <span class="kpi-label">Board Gaze Alignment</span>
+            <div class="kpi-val-row">
+              <strong id="modal-kpi-facing" class="kpi-value mono tabular-nums">--.-%</strong>
+              <span class="kpi-tag-status" id="modal-kpi-facing-tag">Frontal Sync</span>
+            </div>
+            <span id="modal-kpi-gaze-desc" class="kpi-desc">Head yaw/pitch within &plusmn;26&deg; lecture cone</span>
+          </div>
+
+          <div class="kpi-card">
+            <span class="kpi-label">Fatigue &amp; Oral Kinematics</span>
+            <div class="kpi-val-row">
+              <strong id="modal-kpi-fatigue" class="kpi-value mono tabular-nums">0.00 MAR</strong>
+              <span class="kpi-tag-status" id="modal-kpi-fatigue-tag">Normal</span>
+            </div>
+            <span id="modal-kpi-fatigue-desc" class="kpi-desc">0 yawn events &middot; Eye closure rate normal</span>
+          </div>
+
+          <div class="kpi-card">
+            <span class="kpi-label">Engagement Trajectory</span>
+            <div class="kpi-val-row">
+              <strong id="modal-kpi-trajectory" class="kpi-value mono tabular-nums">--</strong>
+              <span class="kpi-tag-status" id="modal-kpi-traj-tag">Slope</span>
+            </div>
+            <span id="modal-kpi-traj-desc" class="kpi-desc">Rate of focus change across interval</span>
+          </div>
+        </div>
+
+        <!-- High-Resolution Telemetry Waveform -->
+        <div class="modal-chart-section">
+          <div class="modal-chart-header">
+            <span class="modal-section-title">High-Definition Telemetry Slice Waveform</span>
+            <div class="modal-legend-strip">
+              <span class="legend-chip"><span class="chip-dot" style="background:#18181B"></span> Focus</span>
+              <span class="legend-chip"><span class="chip-dot" style="background:#A1A1AA"></span> Mean</span>
+              <span class="legend-chip"><span class="chip-dot" style="background:#0071E3"></span> Board Gaze</span>
+              <span class="legend-chip"><span class="chip-dot" style="background:#FF3B30"></span> Mouth Ratio (MAR)</span>
+            </div>
+          </div>
+          <div class="modal-chart-wrapper">
+            <canvas id="modal-chart-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Deterministic Pedagogical Diagnostic Box -->
+        <div class="modal-diagnosis-box">
+          <div class="diagnosis-header">
+            <span class="diagnosis-icon">💡</span>
+            <strong class="diagnosis-title">Pedagogical Anomaly &amp; Kinematic Diagnosis</strong>
+          </div>
+          <p id="modal-diagnosis-text" class="diagnosis-body">
+            Analyzing telemetry telemetry points for this interval...
+          </p>
+        </div>
+
+        <!-- Frame-by-Frame Forensic Ledger Table -->
+        <div class="modal-table-section">
+          <div class="modal-table-header">
+            <div class="modal-table-header-left">
+              <span class="modal-section-title">Forensic Frame Ledger (<span id="modal-frame-count">0</span> samples)</span>
+              <span class="modal-table-subtitle">· Individual biometric optical measurements captured during interval</span>
+            </div>
+            <div class="modal-filter-chips">
+              <button type="button" class="modal-filter-chip active" data-filter="all">All Samples</button>
+              <button type="button" class="modal-filter-chip" data-filter="divergent">Averted / Desk</button>
+              <button type="button" class="modal-filter-chip" data-filter="fatigue">Fatigue / Yawn</button>
+            </div>
+          </div>
+          <div class="modal-table-scroll">
+            <table class="swiss-ledger-table modal-ledger-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Active Focus</th>
+                  <th>Head Pitch &amp; Yaw</th>
+                  <th>Gaze Alignment</th>
+                  <th>Ocular Ratio (EAR)</th>
+                  <th>Mouth Ratio (MAR)</th>
+                  <th>Status Classification</th>
+                </tr>
+              </thead>
+              <tbody id="modal-ledger-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal Action Footer -->
+        <div class="modal-actions modal-studio-actions">
+          <div class="modal-actions-left">
+            <button type="button" id="btn-modal-export-slice" class="btn-modal-secondary">
+              <span>⬇ Export Slice as CSV</span>
+            </button>
+            <button type="button" id="btn-modal-copy-summary" class="btn-modal-secondary">
+              <span>📋 Copy Interval Report</span>
+            </button>
+            <button type="button" id="btn-modal-export-incidents" class="btn-modal-secondary" title="Export detected milestone anomaly incidents as a JSON audit log">
+              <span>⚠️ Export Incident Log (JSON)</span>
+            </button>
+          </div>
+          <div class="modal-actions-right">
+            <button type="button" id="btn-modal-reset-live" class="btn-modal-secondary">
+              <span>⟲ Return to Live Stream</span>
+            </button>
+            <button type="button" id="btn-modal-close" class="btn-modal-primary">
+              <span>Done (Esc)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-notice" class="toast-notice">
+    <span id="toast-icon">🎯</span>
+    <span id="toast-msg">Pose baseline auto-calibrated</span>
+  </div>
+
+  <script src="js/script.js"></script>
 </body>
 </html>

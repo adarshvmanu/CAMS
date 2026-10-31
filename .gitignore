@@ -1,1 +1,14 @@
 /Page/server/node_modules
+.venv
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.node/
+camera_check.jpg
+.cams*
+cams.log
+Page/data.json
+Page/data.json.tmp
+Page/camera_feed.jpg
+Page/camera_feed.jpg.tmp

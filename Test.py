@@ -1,152 +1,208 @@
-import mediapipe as mp
-import cv2 as cv
-from scipy.spatial import distance as dis
-import time
-
-def draw_landmarks(image, outputs, land_mark, color):
-    height, width = image.shape[:2]
-             
-    for face_landmarks in outputs.multi_face_landmarks:
-        for face in land_mark:
-            point = face_landmarks.landmark[face]
-            point_scale = ((int)(point.x * width), (int)(point.y*height))
-            cv.circle(image, point_scale, 2, color, 1)
-
-def euclidean_distance(image, top, bottom):
-    height, width = image.shape[0:2]
-            
-    point1 = int(top.x * width), int(top.y * height)
-    point2 = int(bottom.x * width), int(bottom.y * height)
-    
-    distance = dis.euclidean(point1, point2)
-    return distance
-
-def get_aspect_ratio(image, outputs, top_bottom, left_right):
-    aspect_ratios = []
-    
-    for face_landmarks in outputs.multi_face_landmarks:
-        top = face_landmarks.landmark[top_bottom[0]]
-        bottom = face_landmarks.landmark[top_bottom[1]]
-        top_bottom_dis = euclidean_distance(image, top, bottom)
-        
-        left = face_landmarks.landmark[left_right[0]]
-        right = face_landmarks.landmark[left_right[1]]
-        left_right_dis = euclidean_distance(image, left, right)
-        
-        aspect_ratio = left_right_dis / top_bottom_dis
-        aspect_ratios.append(aspect_ratio)
-    
-    return aspect_ratios
-
-mp_face_mesh = mp.solutions.face_mesh
-mp_drawing = mp.solutions.drawing_utils
-
-STATIC_IMAGE_MODE = False
-MAX_NUM_FACES = 2
-DETECTION_CONFIDENCE = 0.6
-TRACKING_CONFIDENCE = 0.5
-
-COLOR_RED = (0, 0, 255)
-COLOR_BLUE = (255, 0, 0)
-COLOR_GREEN = (0, 255, 0)
-
-LEFT_EYE_TOP_BOTTOM = [386, 374]
-LEFT_EYE_LEFT_RIGHT = [263, 362]
-
-RIGHT_EYE_TOP_BOTTOM = [159, 145]
-RIGHT_EYE_LEFT_RIGHT = [133, 33]
-
-LEFT_RIGHT_LIPS = [78, 308]
-
-face_model = mp_face_mesh.FaceMesh(
-    static_image_mode=STATIC_IMAGE_MODE,
-    max_num_faces=MAX_NUM_FACES,
-    min_detection_confidence=DETECTION_CONFIDENCE,
-    min_tracking_confidence=TRACKING_CONFIDENCE)
-
-capture = cv.VideoCapture(0)
-
-while True:
-    ret, image = capture.read()
-    if not ret:
-        break
-    
-    image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-    results = face_model.process(image_rgb)
-
-    if results.multi_face_landmarks:
-        draw_landmarks(image, results, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
-        draw_landmarks(image, results, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
-        aspect_ratios_left = get_aspect_ratio(image, results, LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT)
-        
-        draw_landmarks(image, results, RIGHT_EYE_TOP_BOTTOM, COLOR_RED)
-        draw_landmarks(image, results, RIGHT_EYE_LEFT_RIGHT, COLOR_RED)
-        aspect_ratios_right = get_aspect_ratio(image, results, RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT)
-        
-        draw_landmarks(image, results, LEFT_RIGHT_LIPS, COLOR_BLUE)
-        aspect_ratios_lips = get_aspect_ratio(image, results, LEFT_RIGHT_LIPS, LEFT_RIGHT_LIPS)
-        
-        for idx, (ratio_left, ratio_right, ratio_lips) in enumerate(zip(aspect_ratios_left, aspect_ratios_right, aspect_ratios_lips)):
-            if (ratio_left + ratio_right) / 2 > 5:
-                print(f"Drowsiness detected in face {idx+1}")
-            if ratio_lips < 1.8:
-                print(f"Yawning detected in face {idx+1}")
+"""
+CAMS Test Suite - Automated Verification of CV Detectors & MultiStudentTracker
+"""
+import unittest
+import numpy as np
+from cams.landmarks import CANONICAL_FACE_3D, POSE_LANDMARK_IDS
+from cams.tracker import MultiStudentTracker, StudentTrack
 
 
-    cv.imshow('Face Mesh', image)
-    if cv.waitKey(5) & 0xFF == 27:
-        break
+class TestCAMSComponents(unittest.TestCase):
 
-capture.release()
-cv.destroyAllWindows()
+    def test_canonical_face_model(self):
+        self.assertEqual(CANONICAL_FACE_3D.shape, (6, 3))
+        self.assertEqual(len(POSE_LANDMARK_IDS), 6)
+
+    def test_student_track_rebalancing(self):
+        track = StudentTrack(student_id=1)
+        # 1. Normal attentive student (facing, eyes open, mouth closed)
+        track.update(
+            centroid=(0.5, 0.5), ear=0.28, mar=0.08,
+            pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+        )
+        self.assertAlmostEqual(track.instant_score, 100.0, delta=1.0)
+        self.assertTrue(track.is_attentive)
+        self.assertEqual(track.status, "Attentive")
+
+        # 2. Distracted student looking completely away
+        track.update(
+            centroid=(0.5, 0.5), ear=0.28, mar=0.08,
+            pitch=0.0, yaw=30.0, roll=0.0, direction="Looking Right"
+        )
+        self.assertAlmostEqual(track.instant_score, 65.0, delta=1.0)
+        self.assertFalse(track.facing_classroom)
+        self.assertEqual(track.status, "Looking Right")
+
+    def test_yawn_hysteresis(self):
+        track = StudentTrack(student_id=1)
+        # Single frame with wide open mouth (mar > 0.45) should NOT immediately trigger yawn
+        track.update(
+            centroid=(0.5, 0.5), ear=0.28, mar=0.55,
+            pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+        )
+        self.assertFalse(track.yawn_detected)
+        self.assertEqual(track.yawn_frame_count, 1)
+
+        # After 15 sustained frames, yawn triggers
+        for _ in range(15):
+            track.update(
+                centroid=(0.5, 0.5), ear=0.28, mar=0.55,
+                pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+            )
+        self.assertTrue(track.yawn_detected)
+        self.assertEqual(track.status, "Yawning")
+
+    def test_asymmetric_kinematic_damper(self):
+        track = StudentTrack(student_id=1)
+        # Establish attentive baseline at 100
+        track.update(
+            centroid=(0.5, 0.5), ear=0.28, mar=0.08,
+            pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+        )
+        self.assertEqual(track.ema_score, 100.0)
+
+        # Distraction / Sleep onset: fast-attack (alpha = 0.35)
+        # Instant score drops to 0.0
+        track.sleep_detected = True
+        track.facing_classroom = False
+        track.instant_score = 0.0
+        track.prev_ema_score = track.ema_score
+        alpha_down = 0.35
+        expected_down = (alpha_down * 0.0) + ((1.0 - alpha_down) * 100.0)  # 65.0
+        track.ema_score = expected_down
+        track.attention_velocity = round(track.ema_score - track.prev_ema_score, 2)
+        track.impending_divergence = bool(track.attention_velocity < -3.0 and not track.facing_classroom)
+
+        self.assertAlmostEqual(track.ema_score, 65.0, delta=0.1)
+        self.assertEqual(track.attention_velocity, -35.0)
+        self.assertTrue(track.impending_divergence)
+
+        # Recovery back to attentive: calm decay (alpha = 0.12)
+        track.instant_score = 100.0
+        alpha_up = 0.12
+        expected_up = (alpha_up * 100.0) + ((1.0 - alpha_up) * 65.0)  # 12.0 + 57.2 = 69.2
+        track.prev_ema_score = track.ema_score
+        track.ema_score = expected_up
+        self.assertAlmostEqual(track.ema_score, 69.2, delta=0.1)
+
+    def test_yawn_with_eye_squint_suppresses_false_sleep(self):
+        track = StudentTrack(student_id=1)
+        # Simulate active yawn (MAR 0.51) where eyes reflexively squint (EAR 0.15)
+        for _ in range(10):
+            track.update(
+                centroid=(0.5, 0.5), ear=0.15, mar=0.51,
+                pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+            )
+        # Should be classified as Yawning, NOT Sleeping
+        self.assertTrue(track.yawn_detected)
+        self.assertFalse(track.sleep_detected)
+        self.assertEqual(track.status, "Yawning")
+
+    def test_status_tiering_prevents_false_attentive(self):
+        track = StudentTrack(student_id=1)
+        # Student facing forward but heavily distracted (EMA drops to 13.6)
+        track.ema_score = 13.6
+        track.facing_classroom = True
+        track.update(
+            centroid=(0.5, 0.5), ear=0.28, mar=0.08,
+            pitch=0.0, yaw=0.0, roll=0.0, direction="Forward"
+        )
+        self.assertFalse(track.is_attentive)
+        self.assertEqual(track.status, "Distracted")
+
+    def test_student_track_dictionary_serialization(self):
+        track = StudentTrack(student_id=1)
+        track.update(
+            centroid=(0.52, 0.48), ear=0.25, mar=0.09,
+            pitch=12.0, yaw=-5.0, roll=2.0, direction="Forward",
+            bbox=[0.40, 0.35, 0.22, 0.28]
+        )
+        d = track.to_dict()
+        self.assertEqual(d["id"], 1)
+        self.assertEqual(d["position"], "Center")
+        self.assertEqual(d["missing_frames"], 0)
+        self.assertTrue(d["active"])
+        self.assertIn("score", d)
+        self.assertIn("velocity", d)
+        self.assertIn("impending_divergence", d)
+        self.assertEqual(d["bbox"], [0.40, 0.35, 0.22, 0.28])
+
+    def test_dynamic_ear_threshold_bounds(self):
+        track = StudentTrack(student_id=1)
+        # Test low baseline
+        for _ in range(20):
+            track.update((0.5, 0.5), 0.18, 0.08, 0.0, 0.0, 0.0, "Forward")
+        # Should be bounded at >= 0.14
+        dyn_low = max(min(track.ear_baseline * 0.68, 0.21), 0.14)
+        self.assertGreaterEqual(dyn_low, 0.14)
+
+        # Test high baseline
+        for _ in range(40):
+            track.update((0.5, 0.5), 0.38, 0.08, 0.0, 0.0, 0.0, "Forward")
+        dyn_high = max(min(track.ear_baseline * 0.68, 0.21), 0.14)
+        self.assertLessEqual(dyn_high, 0.21)
+
+    def test_multistudent_tracker_slot_reset(self):
+        tracker = MultiStudentTracker(max_faces=4)
+        # Simulate 2 detected faces
+        faces = [
+            {"centroid": (0.2, 0.4), "ear": 0.28, "mar": 0.08, "pitch": 0.0, "yaw": 0.0, "roll": 0.0, "direction": "Forward"},
+            {"centroid": (0.7, 0.4), "ear": 0.29, "mar": 0.08, "pitch": 0.0, "yaw": 0.0, "roll": 0.0, "direction": "Forward"}
+        ]
+        summary = tracker.update(faces)
+        self.assertEqual(summary["count"], 2)
+        self.assertTrue(tracker.tracks[1].is_active)
+        self.assertTrue(tracker.tracks[2].is_active)
+
+        # Simulate 1 face in next frame (grace period before reset)
+        faces_next = [
+            {"centroid": (0.2, 0.4), "ear": 0.28, "mar": 0.08, "pitch": 0.0, "yaw": 0.0, "roll": 0.0, "direction": "Forward"}
+        ]
+        # Fast forward missing frames to trigger reset
+        for _ in range(35):
+            summary_next = tracker.update(faces_next)
+
+        self.assertEqual(summary_next["count"], 1)
+        self.assertTrue(tracker.tracks[1].is_active)
+        self.assertFalse(tracker.tracks[2].is_active)
+
+    def test_direction_schmitt_trigger_hysteresis(self):
+        track = StudentTrack(student_id=1)
+        # 1. Forward facing (yaw = 0)
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 0.0, 0.0, "Forward")
+        self.assertEqual(track.direction, "Forward")
+        self.assertTrue(track.facing_classroom)
+
+        # 2. Angular deviation below 22° threshold (yaw = 20°) remains Forward
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 20.0, 0.0, "Forward")
+        self.assertEqual(track.direction, "Forward")
+        self.assertTrue(track.facing_classroom)
+
+        # 3. Exceeds 22° threshold (yaw = 23°) transitions to Looking Right
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 23.0, 0.0, "Looking Right")
+        self.assertEqual(track.direction, "Looking Right")
+        self.assertFalse(track.facing_classroom)
+
+        # 4. Schmitt deadband: yaw drops to 20° (above 18° return threshold) stays Looking Right
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 20.0, 0.0, "Looking Right")
+        self.assertEqual(track.direction, "Looking Right")
+        self.assertFalse(track.facing_classroom)
+
+        # 5. Yaw drops below 18° (yaw = 14°) returns to Forward
+        track.update((0.5, 0.5), 0.28, 0.08, 0.0, 14.0, 0.0, "Forward")
+        self.assertEqual(track.direction, "Forward")
+        self.assertTrue(track.facing_classroom)
+
+    def test_direction_status_mutual_consistency(self):
+        track = StudentTrack(student_id=1)
+        # Test downward pitch (pitch = +26.0)
+        track.update((0.5, 0.5), 0.28, 0.08, 26.0, 0.0, 0.0, "Looking Down")
+        self.assertEqual(track.direction, "Looking Down")
+        self.assertEqual(track.status, "Looking Down")
+        d = track.to_dict()
+        self.assertEqual(d["direction"], d["status"])
+        self.assertEqual(d["direction"], "Looking Down")
 
 
-###
-
-def calculate_attention_score(sleep_detected, yawn_detected, facing_classroom):
-    
-    sleep_weight = 0.5
-    yawn_weight = 0.3
-    facing_weight = 0.2
-    attention_scores = []
-    facing_count=0
-    sleep_count=0
-    yawn_count=0
-    size=len(sleep_detected)
-
-    for i in range(size):
-        sleep_score = 10 if sleep_detected[i] else 50
-        yawn_score = 10 if yawn_detected[i] else 50
-        facing_score = 50 if facing_classroom[i] else 0
-
-        if facing_classroom[i]==True:
-            facing_count+=1
-        if yawn_detected[i]==True:
-            yawn_count+=1
-        if sleep_detected==True:
-            sleep_count+=1
-        
-        total_score = (sleep_score * sleep_weight) + (yawn_score * yawn_weight) + (facing_score * facing_weight)
-        attention_score = min(max(total_score, 0), 100)
-        attention_scores.append(attention_score)
-        
-    attention_score=mean(attention_scores) 
-    overall_score.append(attention_score)  
-    sleep=((sleep_count)/size)*100
-    yawn=((yawn_count)/size)*100
-    head=((facing_count)/size)*100
-    pack_json(attention_score,sleep,yawn,head)
-
-def pack_json(attention_score,sleep,yawn,head):
-    timestamp = time.now().strftime("%H:%M")
-    data = {
-        "time": timestamp,
-        "attention_scores": attention_score,
-        "sleep_detected": sleep,
-        "yawn_detected": yawn,
-        "facing_classroom": head,
-        "overall_score" : mean(overall_score)
-    }
-    json_data = json.dumps(data)
-    with open('data.json', 'w') as file:
-        json.dump({"chart": json_data}, file)
+if __name__ == '__main__':
+    unittest.main()
